@@ -1,0 +1,220 @@
+<!doctype html>
+<html class="no-js fixed-layout">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>深网-无极云</title>
+  <meta name="description" content="深网-无极云">
+  <meta name="keywords" content="index">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <link rel="icon" type="image/png" href="assets/i/favicon.png">
+  <link rel="apple-touch-icon-precomposed" href="assets/i/app-icon72x72@2x.png">
+  <meta name="apple-mobile-web-app-title" content="Amaze UI" />
+  <link rel="stylesheet" href="assets/css/amazeui.css" />
+  <link rel="stylesheet" href="assets/css/admin.css">
+  <link rel="stylesheet" href="assets/css/hwLayer.css">
+  <script src="assets/js/jquery.min.js"></script>
+  <script type="text/javascript" src="assets/js/md5.js"></script>
+  <script src="assets/js/model/file-index.js"></script>
+  <script src="assets/js/model/user.js"></script>
+  <script src="assets/js/model/popmodel.js"></script>
+</head>
+
+<body style="	background-color: #343a3d;">
+  <!--[if lte IE 9]>
+<p class="browsehappy">你正在使用<strong>过时</strong>的浏览器，Amaze UI 暂不支持。 请 <a href="http://browsehappy.com/" target="_blank">升级浏览器</a>
+  以获得更好的体验！</p>
+<![endif]-->
+
+  <header class="am-topbar am-topbar-fixed" style="background-color:#343a3d;padding: 0px; margin-left: 0px; max-height: 62px;">
+    <div class="am-container">
+      <h1 class="am-topbar-brand">
+        <a href="/"><img src="assets/logo.png"   style="margin-left:30px; padding-top:1px" /></a>
+      </h1>
+
+      <button class="am-topbar-btn am-topbar-toggle am-btn am-btn-sm am-btn-secondary am-show-sm-only" data-am-collapse="{target: '#collapse-head'}"><span
+          class="am-sr-only">导航切换</span> <span class="am-icon-bars"></span></button>
+
+      <div style="margin-top:20px;margin-left:200px; font-style: MicrosoftYaHei;  font-size: 18px; height: 30px;max-height: 30px;
+      font-weight: normal;
+      font-stretch: normal; 
+      letter-spacing: 0px;"
+        id="collapse-head">
+        <a href="#" style="  padding-bottom:10px;
+        width: 38px; 
+	height: 19px;margin-left:10px;border-bottom:4px solid #1999e3;
+	 font-style: MicrosoftYaHei;
+	font-size: 18px;
+	font-weight:bolder;
+	font-stretch: normal;
+	letter-spacing: 0px;
+  color: #1999e3;   ">文件</a>
+
+
+        <div class="am-collapse am-topbar-collapse" id="topbar-collapse" style="margin-top:-60px; padding-top:30px; ">
+
+          <ul id="userinfoBar" class="am-nav am-nav-pills am-topbar-nav am-topbar-right admin-header-list">
+            <li class="am-dropdown" data-am-dropdown>
+              <a class="am-dropdown-toggle" data-am-dropdown-toggle  href="javascript:;">
+                <span class="am-icon-envelope-o"></span> 消息
+                <span class="am-badge am-badge-warning" id="messageLength"></span>
+              </a>
+              <ul class="am-dropdown-content" id="messageContent">
+              </ul>
+            </li>
+
+
+            <li class="am-dropdown" data-am-dropdown>
+              <a class="am-dropdown-toggle" data-am-dropdown-toggle href="javascript:;">
+                <span class="am-icon-users"></span> 设置
+                <span class="am-icon-caret-down"></span>
+              </a>
+              <ul class="am-dropdown-content">
+                <li>
+                  <a href="#" onclick="openInfomationPanel()">
+                    <span class="am-icon-user"></span> 我的资料</a>
+                </li>
+                <li>
+                  <a href="#" onclick="openUpdatePswdPanel()">
+                    <span class="am-icon-cog "></span>修改密码</a>
+                </li>
+                <li>
+                  <a href="#" onclick="useAnonymous()">
+                    <img src="assets/web/nm.png" width="19px" height="19px" style="padding-left:-10px;" />匿名使用</a>
+                </li>
+                <li>
+                  <a href="#" onclick="logoutFunc('index.html')">
+                    <span class="am-icon-power-off"></span> 退出</a>
+                </li>
+              </ul>
+            </li>
+
+          </ul>
+
+          <div id="nimingBar" class="am-topbar-right" style="color:#fff; ">您处于匿名模式
+            <a id="loginhref" href="web-login.html"><img src="assets/login.png" /> &nbsp; 登录</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- sidebar start -->
+  <div class="admin-sidebar am-offcanvas" style="background-color: #343a3d;margin-top: 80px;width: 182px;" id="admin-offcanvas">
+    <div class="am-offcanvas-bar admin-offcanvas-bar" style="background-color: #343a3d;">
+      <ul class="am-list  " style="background-color: #343a3d; translate: true;list-style:none;">
+        <li class="menuLi" id="allfileBT" class="admin-parent" style="background-color: #242b2e; cursor:  pointer; color: aliceblue;">
+          <a class="am-cf" onclick="openFileList('*',0,-1,allfileBT)" style="color: aliceblue;">&nbsp;&nbsp;<img src="assets/web/qb.png"
+              style="width: 20px;height:22px;" /> &nbsp; 全部文件 <span class="am-icon-angle-right am-fr am-margin-right"
+              data-am-collapse="{target: '#collapse-nav'}"></span></a>
+          <ul class="am-list am-collapse admin-sidebar-sub am-in" id="collapse-nav" style="background-color: #343a3d;list-style:none;">
+            <!-- <li><a href="admin-user.html" class="am-cf"><span class="am-icon-check"></span> 个人资料<span class="am-icon-star am-fr am-margin-right admin-icon-yellow"></span></a></li> -->
+            <li class="menuLi" onclick="openFileList('pic',0,-1,this)" style="background-color: #343a3d; cursor: pointer;height: 40px; color: aliceblue; padding-left: 60px;padding-top: 8px;">
+              图片 </li>
+            <li class="menuLi" onclick="openFileList('video',0,-1,this)" style="background-color: #343a3d; cursor:  pointer;height: 40px; color: aliceblue; padding-left: 60px;padding-top: 8px;">
+              视频 </li>
+            <li class="menuLi" onclick="openFileList('doc',0,-1,this)" style="background-color: #343a3d; cursor:  pointer;height: 40px; color: aliceblue; padding-left: 60px;padding-top: 8px;">
+              文档 </li>
+            <li class="menuLi" onclick="openFileList('other',0,-1,this)" style="background-color: #343a3d; cursor:  pointer;height: 40px; color: aliceblue; padding-left: 60px;padding-top: 8px;">
+              其他 </li>
+          </ul>
+        </li>
+        <li class="menuLi" onclick="openFileList('*',1,-1,this)" id="rubbishUI" style="background-color: #343a3d; cursor: pointer;color: aliceblue;padding-top: 8px;">
+          &nbsp;&nbsp;<img src="assets/web/hsz.png" style="width: 20px;height:22px;" />
+          &nbsp; 回收站 </li>
+      </ul>
+
+    </div>
+  </div>
+  <!-- sidebar end -->
+
+  <!-- content start -->
+  <div class="admin-content" style="  	background-color: #f5f6f7; padding-top: 0px;margin-left: 182px;">
+    <div class="admin-content-body" id="mainBody">
+
+      <div style="padding-left:20px; ">
+        <div class="am-u-sm-12 am-u-md-12">
+          <div style="  padding-top: 50px;   ">
+            <div class="am-btn-group am-btn-group-xs " style="  margin-top:20px; position: absolute; top: 0px;  width: 600px;">
+              <button type="button" id="uploadBT" onclick="uploadfile()" class=" am-btn am-btn-default" style="color:#f5f6f7; background-color: #1999e3;"><img
+                  src="assets/web/sc.png" style="width: 20px;height:22px;" /> 上传</button>
+              <button type="button" id="downloadBT" onclick="batchDownload()" class="am-btn am-btn-default"><img src="assets/web/xz.png"
+                  style="width: 20px;height:22px;" /> 下载</button>
+              <button type="button" onclick="newDirctionary()" id="newdirBT" class="am-btn am-btn-default"><img src="assets/web/xj.png"
+                  style="width: 20px;height:22px;" /> 新增文件夹</button>
+              <button type="button" onclick="deleteAll()" id="deleteBT" class="am-btn am-btn-default"><img src="assets/web/yc.png"
+                  style="width: 20px;height:22px;" /> 移除选择</button>
+              <button type="button" onclick="removeAll()" id="removeBT" hidden="hidden" class="am-btn am-btn-default"><img
+                  src="assets/web/yc.png" style="width: 20px;height:22px;" /> 彻底移除所选</button>
+            </div>
+          </div>
+          <br />
+        </div>
+
+      </div>
+
+      <div class="am-g" style="margin-left:20px;">
+        <div class="am-u-sm-12  am-u-md-12">
+          <form class="am-form" style="background-color: #fff;">
+            <table class="am-table   am-table-hover table-main" style=" border:1px   #f5f6f7;">
+              <thead>
+                <tr>
+                  <th class="table-check" style="width:10px"><input type="checkbox" id="quanxuanCB" onchange="quanxuan(this)" /></th>
+                  <th class="table-title" style="width:40%">全部文件 &nbsp;&nbsp;&nbsp; <span type="button" id="backparentBT"
+                      onclick="backparentdir()" style="font-size: 14px; cursor:  pointer; " class=" am-btn-default">返回上一级</span>
+                  </th>
+                  <th class="table-type" style="width:10%">大小</th>
+                  <th class="table-author am-hide-sm-only" style="width:20%">存储码</th>
+                  <th class="table-date am-hide-sm-only" style="width:20%">上传时间</th>
+                  <th  style="width:150px;text-align:center;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="mainTable">
+
+              </tbody>
+            </table>
+            <!-- <div class="am-cf">
+            
+              <div class="am-fr">
+                <ul class="am-pagination">
+                  <li  id="prepage" onclick="getFileList(currentpage-1,currentkind,currentDelete)"><a href="#">«</a></li>
+                  <li class="am-active"  id="currentPage"> 1 </li>
+                  <li onclick="getFileList(currentpage+1,currentkind,currentDelete)" id="nextpage"><a href="#"> » </a></li>
+                </ul>
+              </div>
+            </div> -->
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+    <footer class="admin-content-footer">
+      <p>Copyright © 2015 NCFGroup.com Inc. All Rights Reserved. | 京ICP备14035627号-1 | 京公网安备1101050202650 </p>
+    </footer>
+  </div>
+  <!-- content end -->
+
+
+  <a href="#" class="am-icon-btn am-icon-th-list am-show-sm-only admin-menu" data-am-offcanvas="{target: '#admin-offcanvas'}"></a>
+
+  <!--[if lt IE 9]>
+<script src="http://libs.baidu.com/jquery/1.11.1/jquery.min.js"></script>
+<script src="http://cdn.staticfile.org/modernizr/2.8.3/modernizr.js"></script>
+<script src="assets/js/amazeui.ie8polyfill.min.js"></script>
+<![endif]-->
+
+  <!--[if (gte IE 9)|!(IE)]><!-->
+  <script src="assets/js/jquery.min.js"></script>
+  <!--<![endif]-->
+  <script src="assets/js/amazeui.min.js"></script>
+  <script>
+    init();
+  </script>
+</body>
+
+</html>

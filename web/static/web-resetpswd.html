@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>无极云-密码修改</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="Cache-Control" content="no-siteapp" />
+    <link rel="alternate icon" type="image/png" href="assets/i/favicon.png">
+    <link rel="stylesheet" href="assets/css/amazeui.css" />
+    <script type="text/javascript" src="assets/js/jquery.min.js"></script>
+    <script type="text/javascript" src="assets/js/qrcode.min.js"></script>
+    <script>
+
+        $(function () {
+            function footerPosition() {
+                $("footer").removeClass("fixed-bottom");
+                var contentHeight = document.body.scrollHeight,//网页正文全文高度
+                    winHeight = window.innerHeight;//可视窗口高度，不包括浏览器顶部工具栏
+                var result = contentHeight;
+                if ((contentHeight > winHeight)) {
+
+                    $("footer").removeClass("fixed-bottom");
+                    $("#thisbody").css({
+                        "height": contentHeight,
+                    });
+                } else {
+                    result = winHeight;
+                    //当网页正文高度小于可视窗口高度时，为footer添加类fixed-bottom
+                    $("#thisbody").css({
+                        "height": winHeight,
+                    });
+                    $("footer").addClass("fixed-bottom");
+                }
+
+                $("#paneldiv").css({
+                    "margin-top": (result - 519) / 2 - 55,
+                });
+
+            }
+            footerPosition();
+            $(window).resize(footerPosition);
+        });
+    </script>
+    <style>
+
+        .fixed-bottom {position: fixed;bottom: 0;width:100%;}
+    </style>
+</head>
+
+<body id="thisbody" style=" background-color: #343a3d;width:100%;background-image: url('assets/web/bg1.png'); background-repeat: no-repeat;vertical-align: middle;">
+    <header class="am-topbar-fixed">
+        <div class="am-container">
+            <h1 class="am-topbar-brand">
+                <a href="/"><img src="assets/logo.png" /></a>
+            </h1>
+
+            <button class="am-topbar-btn am-topbar-toggle am-btn am-btn-sm am-btn-secondary am-show-sm-only"
+                data-am-collapse="{target: '#collapse-head'}"><span class="am-sr-only">导航切换</span> <span class="am-icon-bars"></span></button>
+
+            <div style="margin-top:20px;margin-left: 200px; font-style: MicrosoftYaHei;  font-size: 18px;
+      font-weight: normal;
+      font-stretch: normal;
+      letter-spacing: 0px;"
+                id="collapse-head">
+
+                <ul class="am-nav am-nav-pills am-topbar-nav " style="  font-style: MicrosoftYaHei;    font-size: 18px;  ">
+                    <li><a style="  color: #f5f6f7;" href="web-tips.html">文件管理</a></li>
+                    <li><a style="  color: #f5f6f7;" href="web-whitepaper.html">白皮书</a></li>
+                    <li><a style="  color: #f5f6f7;" href="web-server.html">服务</a></li>
+                </ul>
+
+
+                <div class="am-topbar-right">
+                    <a href="web-login.html"><img src="assets/login.png" /> &nbsp; 登录</a>
+                </div>
+                <div class="am-topbar-right" style="content: '';
+        height:60%;
+        display: inline-block;
+        vertical-align: middle;
+        border-right: 1px solid white;" />
+
+                <div class="am-topbar-right">
+                    <a href="#"> 客户端下载</a>
+                </div>
+
+            </div>
+        </div>
+    </header>
+
+    <div id="paneldiv" style=" width: 430px;
+    margin-left: 1130px; 
+      height: 460px;
+      background-color: #f5f6f7;">
+        <div style="width: 100%;
+      padding: 31px; 
+      height: 23px;  text-align: center;
+       font-style: MicrosoftYaHei;
+      font-size: 24px;
+      font-weight: normal;
+      font-stretch: normal;
+      letter-spacing: 1px;
+      color: #343a3d;">密码修改</div>
+        <div style=" width:100% ; height:50px; margin-top: 30px; ">
+            <div style="width: 80px; display: inline-block;margin-left: 40px;
+            height: 41px; text-align: center;  vertical-align: middle;
+            background-color: #f5f6f7; padding-top: 8px;
+            border: solid 1px #c6cdd1;">
+                +86
+            </div>
+            <input type="text" placeholder="电话号码" style="display: inline-block; width:280px;
+                    height: 41px;  padding-left: 20px;
+                    background-color: #f5f6f7;
+                    border: solid 1px #c6cdd1;   background-color: #f5f6f7; ">
+            <img src="assets/web/delete.png" style="margin-left:-35px; cursor: pointer; " />
+        </div>
+        <div style=" width:100% ; height:50px;   margin-left: 40px;  ">
+
+            <input type="text" style="display: inline-block; width:250px;
+                    height: 41px;  padding-top: 10px; 
+                    background-color: #f5f6f7;
+                    border: solid 1px #c6cdd1;  padding-left: 21px;   background-color: #f5f6f7; ">
+            <button style="width: 110px; display: inline-block; 
+                     height: 41px; text-align: center; 
+                     background-color: #c6cdd1; font-size: 14px;
+	font-weight: normal;
+	font-stretch: normal;
+	letter-spacing: 0px;
+	color: #f5f6f7;
+	border: solid 1px #c6cdd1;">
+                获取验证码
+            </button>
+
+        </div>
+
+
+        <div style=" width:100% ; height:50px;  margin-left: 40px; ">
+
+            <input type="password" placeholder="输入新密码" style="display: inline-block; width:360px;
+                             height: 41px;  padding-top: 10px; 
+                             background-color: #f5f6f7;
+                             border: solid 1px #c6cdd1;  padding-left: 21px;   background-color: #f5f6f7;  ">
+
+        </div>
+
+        <div style=" width:100% ; height:50px;  margin-left: 40px;  ">
+
+            <input type="password" placeholder="确认密码" style="display: inline-block; width:360px;
+                            height: 41px;  padding-top: 10px; 
+                            background-color: #f5f6f7;
+                            border: solid 1px #c6cdd1;  padding-left: 21px;   background-color: #f5f6f7;  ">
+        </div>
+
+
+        <h1 style=" cursor: pointer; border: 2px solid #1999e3;
+text-align:center;
+margin-top: 10px;
+width: 360px;
+color: white;
+margin-left: 35px; 
+ font-style: MicrosoftYaHei;
+font-size: 24px;
+font-weight: normal;
+font-stretch: normal;
+height: 46px;
+background-color: #1999e3;">
+            确认
+        </h1>
+
+        <h1 style=" cursor: pointer; border: 2px solid #c6cdd1;
+text-align:center;
+margin-top: 10px;
+width: 360px;
+color: white;
+margin-left: 35px; 
+ font-style: MicrosoftYaHei;
+font-size: 24px;
+font-weight: normal;
+font-stretch: normal;
+height: 46px;
+background-color: #c6cdd1;">
+            取消
+        </h1>
+    </div>
+    <footer class="footer" style="  height: 65px;">
+        <p style="width: 100%; 
+        height: 100%;
+        padding: 30px;
+         font-style: MicrosoftYaHei;
+        font-size: 14px;
+        font-weight: normal;
+        font-stretch: normal;
+        letter-spacing: 0px;
+        color: #c6cdd1;
+        text-align: center;
+        ">Copyright
+            © 2015 NCFGroup.com Inc. All Rights Reserved. | 京ICP备14035627号-1 | 京公网安备1101050202650 </p>
+    </footer>
+
+</body>
+
+</html>
