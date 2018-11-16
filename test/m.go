@@ -3,8 +3,8 @@ package main
 import (
 	"crypto/sha256"
 	"fmt"
-	gconfig "yunpan/config"
-	"yunpan/core/utils"
+	gconfig "polarcloud/config"
+	"polarcloud/core/utils"
 )
 
 func main() {

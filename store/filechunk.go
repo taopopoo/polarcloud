@@ -13,8 +13,8 @@ import (
 	"sort"
 	"sync"
 	"time"
-	gconfig "yunpan/config"
-	"yunpan/core/utils"
+	gconfig "polarcloud/config"
+	"polarcloud/core/utils"
 )
 
 type File struct {

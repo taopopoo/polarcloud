@@ -1,7 +1,7 @@
 package proto
 
 import (
-	"yunpan/core/utils"
+	"polarcloud/core/utils"
 )
 
 //发送消息

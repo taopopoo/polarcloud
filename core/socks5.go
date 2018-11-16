@@ -1,8 +1,8 @@
 package core
 
 import (
-	"yunpan/core/engine"
-	"yunpan/core/socks5"
+	"polarcloud/core/engine"
+	"polarcloud/core/socks5"
 	"net"
 	"strconv"
 )

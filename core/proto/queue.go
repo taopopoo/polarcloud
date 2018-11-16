@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	mc "yunpan/core/message_center"
-	"yunpan/core/utils"
+	mc "polarcloud/core/message_center"
+	"polarcloud/core/utils"
 
 	"gopkg.in/eapache/queue.v1"
 )

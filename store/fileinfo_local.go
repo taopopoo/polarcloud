@@ -12,9 +12,9 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	gconfig "yunpan/config"
-	mc "yunpan/core/message_center"
-	"yunpan/core/utils"
+	gconfig "polarcloud/config"
+	mc "polarcloud/core/message_center"
+	"polarcloud/core/utils"
 )
 
 var localFileinfo = new(sync.Map)

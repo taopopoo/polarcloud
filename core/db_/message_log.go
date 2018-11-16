@@ -1,7 +1,7 @@
 package db
 
 import (
-	"yunpan/core/config"
+	"polarcloud/core/config"
 	"os"
 	"path/filepath"
 	"time"

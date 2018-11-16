@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"time"
-	gconfig "yunpan/config"
-	mc "yunpan/core/message_center"
-	"yunpan/core/nodeStore"
-	"yunpan/core/utils"
+	gconfig "polarcloud/config"
+	mc "polarcloud/core/message_center"
+	"polarcloud/core/nodeStore"
+	"polarcloud/core/utils"
 )
 
 const (

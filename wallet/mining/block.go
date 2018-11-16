@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"yunpan/core/utils"
+	"polarcloud/core/utils"
 )
 
 const (

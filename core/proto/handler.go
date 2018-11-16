@@ -3,9 +3,9 @@ package proto
 import (
 	"errors"
 	"fmt"
-	"yunpan/core/engine"
-	mc "yunpan/core/message_center"
-	"yunpan/core/utils"
+	"polarcloud/core/engine"
+	mc "polarcloud/core/message_center"
+	"polarcloud/core/utils"
 )
 
 func getMessage(id *utils.Multihash, content []byte) *mc.Mess {

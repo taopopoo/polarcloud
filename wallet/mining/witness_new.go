@@ -3,8 +3,8 @@ package mining
 import (
 	"bytes"
 	"sync"
-	"yunpan/config"
-	"yunpan/core/utils"
+	"polarcloud/config"
+	"polarcloud/core/utils"
 )
 
 var witnessesLock = new(sync.RWMutex)

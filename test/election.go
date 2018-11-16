@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"yunpan/wallet/mining"
+	"polarcloud/wallet/mining"
 )
 
 func main() {

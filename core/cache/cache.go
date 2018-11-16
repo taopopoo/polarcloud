@@ -1,7 +1,7 @@
 package cache
 
 import (
-	"yunpan/core/cache/raft"
+	"polarcloud/core/cache/raft"
 )
 
 func Register() {

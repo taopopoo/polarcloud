@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
-	"yunpan/config"
-	routers "yunpan/web/routers"
+	"polarcloud/config"
+	routers "polarcloud/web/routers"
 
 	"github.com/astaxie/beego"
 )
@@ -19,7 +19,7 @@ func Start() {
 	//	搴旂敤鐩戝惉鍦板潃锛岄粯璁や负绌猴紝鐩戝惉鎵€鏈夌殑缃戝崱 IP銆
 	beego.BConfig.Listen.HTTPSAddr = config.WebAddr
 	//瀛樺湪瀹㈡埛绔¯鐨 cookie 鍚嶇О锛岄粯璁ゅ€兼槸 beegosessionID銆
-	beego.BConfig.WebConfig.Session.SessionName = "yunpan"
+	beego.BConfig.WebConfig.Session.SessionName = "polarcloud"
 	//session 杩囨湡鏃堕棿锛岄粯璁ゅ€兼槸 3600 绉掋€
 	beego.BConfig.WebConfig.Session.SessionGCMaxLifetime = 3600
 	beego.BConfig.CopyRequestBody = true
@@ -28,8 +28,8 @@ func Start() {
 	//	beego.BConfig.WebConfig.ViewsPath = `D:\workspaces\go\src\mandela\web\views`
 
 	//inc
-	//	beego.SetStaticPath("/static", `D:\workspace\src\yunpan\web\static`)
-	//	beego.BConfig.WebConfig.ViewsPath = `D:\workspace\src\yunpan\web\views`
+	//	beego.SetStaticPath("/static", `D:\workspace\src\polarcloud\web\static`)
+	//	beego.BConfig.WebConfig.ViewsPath = `D:\workspace\src\polarcloud\web\views`
 	// beego.SetStaticPath("/static", config.Web_path_static)
 	// beego.BConfig.WebConfig.ViewsPath = config.Web_path_views
 	routers.Start()

@@ -1,11 +1,11 @@
 package routers
 
 import (
-	//	"yunpan/core/cache_store"
+	//	"polarcloud/core/cache_store"
 
-	"yunpan/wallet/rpc"
-	"yunpan/web/controllers/store"
-	"yunpan/web/controllers/wallet"
+	"polarcloud/wallet/rpc"
+	"polarcloud/web/controllers/store"
+	"polarcloud/web/controllers/wallet"
 
 	"github.com/astaxie/beego"
 )

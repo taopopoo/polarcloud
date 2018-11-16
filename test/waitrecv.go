@@ -6,7 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"yunpan/core/message_center"
+	"polarcloud/core/message_center"
 )
 
 var count int32 = 0

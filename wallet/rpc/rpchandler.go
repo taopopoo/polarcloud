@@ -2,9 +2,9 @@ package rpc
 
 import (
 	"fmt"
-	"yunpan/core/utils"
-	"yunpan/wallet/keystore"
-	"yunpan/wallet/mining"
+	"polarcloud/core/utils"
+	"polarcloud/wallet/keystore"
+	"polarcloud/wallet/mining"
 )
 
 type serverHandler func(rj *rpcJson) ([]byte, error)

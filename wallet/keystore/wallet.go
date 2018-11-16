@@ -17,12 +17,12 @@ import (
 	//"os"
 	"strings"
 	"sync"
-	//"yunpan/config"
+	//"polarcloud/config"
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
-	"yunpan/config"
-	"yunpan/core/utils"
+	"polarcloud/config"
+	"polarcloud/core/utils"
 
 	"golang.org/x/crypto/ripemd160"
 )

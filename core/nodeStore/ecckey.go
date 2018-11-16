@@ -11,8 +11,8 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"path/filepath"
-	"yunpan/config"
-	"yunpan/core/utils"
+	"polarcloud/config"
+	"polarcloud/core/utils"
 )
 
 /*

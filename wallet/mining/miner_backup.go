@@ -7,8 +7,8 @@ package mining
 import (
 	"encoding/json"
 	"sync"
-	"yunpan/config"
-	"yunpan/core/utils"
+	"polarcloud/config"
+	"polarcloud/core/utils"
 )
 
 var groupMinersLock = new(sync.RWMutex)

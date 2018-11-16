@@ -7,7 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"yunpan/core/utils"
+	"polarcloud/core/utils"
 )
 
 type FileInfo struct {

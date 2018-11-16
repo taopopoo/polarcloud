@@ -1,8 +1,8 @@
 package wallet
 
 import (
-	"yunpan/core/utils"
-	"yunpan/wallet/mining"
+	"polarcloud/core/utils"
+	"polarcloud/wallet/mining"
 )
 
 /*

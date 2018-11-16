@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"errors"
-	"yunpan/core/utils"
+	"polarcloud/core/utils"
 )
 
 type Seed struct {

@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"math/rand"
 	"time"
-	gconfig "yunpan/config"
-	"yunpan/core/utils"
+	gconfig "polarcloud/config"
+	"polarcloud/core/utils"
 )
 
 //得到指定长度的节点id

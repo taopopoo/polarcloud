@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	gconfig "yunpan/config"
-	"yunpan/core/engine"
-	"yunpan/core/utils"
+	gconfig "polarcloud/config"
+	"polarcloud/core/engine"
+	"polarcloud/core/utils"
 )
 
 const (

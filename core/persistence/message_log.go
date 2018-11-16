@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"time"
-	gconfig "yunpan/config"
+	gconfig "polarcloud/config"
 )
 
 var msgTableKey uint64 = 0 //消息表主键，id自增长

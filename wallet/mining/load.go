@@ -3,8 +3,8 @@ package mining
 import (
 	"fmt"
 	"sync/atomic"
-	"yunpan/config"
-	"yunpan/wallet/db"
+	"polarcloud/config"
+	"polarcloud/wallet/db"
 )
 
 /*

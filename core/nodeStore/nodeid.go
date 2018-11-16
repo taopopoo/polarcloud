@@ -11,8 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"yunpan/config"
-	"yunpan/core/utils"
+	"polarcloud/config"
+	"polarcloud/core/utils"
 
 	"github.com/satori/go.uuid"
 )

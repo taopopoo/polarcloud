@@ -2,12 +2,12 @@ package controllers
 
 import (
 	"fmt"
-	gconfig "yunpan/config"
-	"yunpan/core/cache_store"
-	"yunpan/core/message_center"
-	"yunpan/core/nodeStore"
-	"yunpan/core/utils"
-	"yunpan/wallet/mining"
+	gconfig "polarcloud/config"
+	"polarcloud/core/cache_store"
+	"polarcloud/core/message_center"
+	"polarcloud/core/nodeStore"
+	"polarcloud/core/utils"
+	"polarcloud/wallet/mining"
 
 	"github.com/astaxie/beego"
 )

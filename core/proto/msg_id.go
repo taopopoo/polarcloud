@@ -1,7 +1,7 @@
 package proto
 
 import (
-	"yunpan/core/engine"
+	"polarcloud/core/engine"
 )
 
 const (

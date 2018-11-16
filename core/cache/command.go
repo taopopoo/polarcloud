@@ -3,9 +3,9 @@ package cache
 import (
 	"errors"
 	"fmt"
-	mc "yunpan/core/message_center"
-	"yunpan/core/nodeStore"
-	"yunpan/core/utils"
+	mc "polarcloud/core/message_center"
+	"polarcloud/core/nodeStore"
+	"polarcloud/core/utils"
 )
 
 func getQuarterLogicIds() []*utils.Multihash {

@@ -5,11 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
-	"yunpan/config"
-	"yunpan/core/utils"
-	"yunpan/wallet/db"
-	"yunpan/wallet/keystore"
-	"yunpan/wallet/mining"
+	"polarcloud/config"
+	"polarcloud/core/utils"
+	"polarcloud/wallet/db"
+	"polarcloud/wallet/keystore"
+	"polarcloud/wallet/mining"
 )
 
 var prk *ecdsa.PrivateKey

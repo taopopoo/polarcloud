@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"strconv"
 	"time"
-	"yunpan/core/nodeStore"
-	"yunpan/core/utils"
+	"polarcloud/core/nodeStore"
+	"polarcloud/core/utils"
 )
 
 var (

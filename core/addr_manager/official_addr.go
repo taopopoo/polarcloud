@@ -17,8 +17,8 @@ import (
 	"net/http"
 	"os"
 	"time"
-	gconfig "yunpan/config"
-	"yunpan/core/config"
+	gconfig "polarcloud/config"
+	"polarcloud/core/config"
 )
 
 const (

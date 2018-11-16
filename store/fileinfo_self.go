@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 	//	"time"
-	gconfig "yunpan/config"
+	gconfig "polarcloud/config"
 )
 
 var selfFileinfo = new(sync.Map)

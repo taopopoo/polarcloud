@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"yunpan/core/config"
-	"yunpan/core/engine"
-	"yunpan/core/utils"
+	"polarcloud/core/config"
+	"polarcloud/core/engine"
+	"polarcloud/core/utils"
 )
 
 const (

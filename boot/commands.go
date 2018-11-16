@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"yunpan/core"
+	"polarcloud/core"
 )
 
 func StartCommandWindow() {

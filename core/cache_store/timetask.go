@@ -2,8 +2,8 @@ package cache_store
 
 import (
 	"fmt"
-	"yunpan/core/config"
-	"yunpan/core/utils"
+	"polarcloud/core/config"
+	"polarcloud/core/utils"
 )
 
 var task = utils.NewTask(prosess)

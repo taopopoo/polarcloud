@@ -9,9 +9,9 @@ package core
 //	"io/ioutil"
 //	"os"
 //	"path/filepath"
-//	gconfig "yunpan/config"
-//	"yunpan/core/engine"
-//	"yunpan/core/nodeStore"
+//	gconfig "polarcloud/config"
+//	"polarcloud/core/engine"
+//	"polarcloud/core/nodeStore"
 //)
 
 //var Path_Id = filepath.Join(gconfig.Path_configDir, "idinfo.json") //超级节点地址列表文件路径

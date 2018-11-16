@@ -4,9 +4,9 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	mc "yunpan/core/message_center"
-	"yunpan/core/nodeStore"
-	"yunpan/core/utils"
+	mc "polarcloud/core/message_center"
+	"polarcloud/core/nodeStore"
+	"polarcloud/core/utils"
 )
 
 //获取1/4节点id

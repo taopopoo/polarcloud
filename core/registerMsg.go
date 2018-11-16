@@ -1,8 +1,8 @@
 package core
 
 //import (
-//	"yunpan/core/engine"
-//	"yunpan/core/message_center"
+//	"polarcloud/core/engine"
+//	"polarcloud/core/message_center"
 //)
 
 func Init() {

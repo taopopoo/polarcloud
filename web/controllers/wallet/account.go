@@ -1,8 +1,8 @@
 package wallet
 
 import (
-	//	"yunpan/config"
-	"yunpan/wallet"
+	//	"polarcloud/config"
+	"polarcloud/wallet"
 
 	"github.com/astaxie/beego"
 )

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	gconfig "yunpan/config"
+	gconfig "polarcloud/config"
 )
 
 var friendIdsLock = new(sync.RWMutex)

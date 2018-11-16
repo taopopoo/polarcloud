@@ -4,8 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
-	"yunpan/config"
-	"yunpan/core/utils"
+	"polarcloud/config"
+	"polarcloud/core/utils"
 )
 
 /*

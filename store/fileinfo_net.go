@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-	gconfig "yunpan/config"
-	"yunpan/core/utils"
+	gconfig "polarcloud/config"
+	"polarcloud/core/utils"
 )
 
 var netFileinfo = new(sync.Map)

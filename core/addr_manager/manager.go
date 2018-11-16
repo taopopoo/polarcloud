@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
-	gconfig "yunpan/config"
-	"yunpan/core/config"
+	gconfig "polarcloud/config"
+	"polarcloud/core/config"
 )
 
 var (

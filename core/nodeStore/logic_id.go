@@ -4,8 +4,8 @@ import (
 	"encoding/hex"
 	"math/big"
 	"sync"
-	gconfig "yunpan/config"
-	"yunpan/core/utils"
+	gconfig "polarcloud/config"
+	"polarcloud/core/utils"
 )
 
 type Ids struct {

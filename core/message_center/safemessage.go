@@ -5,9 +5,9 @@ package message_center
 
 import (
 	"fmt"
-	"yunpan/core/engine"
-	"yunpan/core/nodeStore"
-	"yunpan/core/utils"
+	"polarcloud/core/engine"
+	"polarcloud/core/nodeStore"
+	"polarcloud/core/utils"
 )
 
 type Mess struct {

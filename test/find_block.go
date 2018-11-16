@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"yunpan/config"
-	"yunpan/wallet/db"
-	"yunpan/wallet/mining"
+	"polarcloud/config"
+	"polarcloud/wallet/db"
+	"polarcloud/wallet/mining"
 )
 
 func main() {

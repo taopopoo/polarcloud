@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	gconfig "yunpan/config"
+	gconfig "polarcloud/config"
 
 	_ "github.com/mattn/go-sqlite3"
 )

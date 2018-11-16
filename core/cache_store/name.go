@@ -6,9 +6,9 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-	"yunpan/core/config"
-	"yunpan/core/nodeStore"
-	"yunpan/core/utils"
+	"polarcloud/core/config"
+	"polarcloud/core/nodeStore"
+	"polarcloud/core/utils"
 )
 
 var (

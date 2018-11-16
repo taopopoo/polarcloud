@@ -2,9 +2,9 @@ package cache
 
 import (
 	"fmt"
-	"yunpan/core/engine"
-	mc "yunpan/core/message_center"
-	"yunpan/core/utils"
+	"polarcloud/core/engine"
+	mc "polarcloud/core/message_center"
+	"polarcloud/core/utils"
 )
 
 func syncData(c engine.Controller, msg engine.Packet) {

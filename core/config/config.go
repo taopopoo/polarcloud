@@ -1,8 +1,8 @@
 package config
 
 import (
-	"yunpan/core/engine"
-	//	"yunpan/core/utils"
+	"polarcloud/core/engine"
+	//	"polarcloud/core/utils"
 )
 
 const (

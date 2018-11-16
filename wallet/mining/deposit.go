@@ -5,8 +5,8 @@ package mining
 
 import (
 	"fmt"
-	"yunpan/config"
-	"yunpan/wallet/keystore"
+	"polarcloud/config"
+	"polarcloud/wallet/keystore"
 )
 
 /*

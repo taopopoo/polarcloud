@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	gconfig "yunpan/config"
-	"yunpan/core/utils"
+	gconfig "polarcloud/config"
+	"polarcloud/core/utils"
 )
 
 var cacheLruLock = new(sync.RWMutex)

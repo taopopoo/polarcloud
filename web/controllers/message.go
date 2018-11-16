@@ -3,8 +3,8 @@ package controllers
 import (
 	"fmt"
 	"time"
-	"yunpan/core/message_center"
-	"yunpan/core/persistence"
+	"polarcloud/core/message_center"
+	"polarcloud/core/persistence"
 
 	"github.com/astaxie/beego"
 )
