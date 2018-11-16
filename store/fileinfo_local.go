@@ -11,10 +11,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
 	gconfig "polarcloud/config"
 	mc "polarcloud/core/message_center"
 	"polarcloud/core/utils"
+	"sync"
 )
 
 var localFileinfo = new(sync.Map)

@@ -10,10 +10,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
-	"time"
 	gconfig "polarcloud/config"
 	"polarcloud/core/utils"
+	"sync"
+	"time"
 )
 
 var netFileinfo = new(sync.Map)

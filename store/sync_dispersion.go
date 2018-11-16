@@ -3,15 +3,15 @@ package store
 import (
 	"encoding/json"
 	"fmt"
+	"polarcloud/core/utils"
 	"sync"
 	"time"
-	"polarcloud/core/utils"
 )
 
 const (
-	FirstTimeInterval    = 30                    //第一次文件块同步检测，单位秒
-	TimeInterval         = 2*Time_sharefile - 30 //文件块同步间隔，单位秒
-	TimeIntervalEveryone = 100                   //每块同步间隔，单位毫秒
+	FirstTimeInterval    = 30                     //第一次文件块同步检测，单位秒
+	TimeInterval         = 10*Time_sharefile - 30 //文件块同步间隔，单位秒
+	TimeIntervalEveryone = 1000                   //每块同步间隔，单位毫秒
 )
 
 var (
@@ -27,16 +27,23 @@ func init() {
 func start() {
 	//第一次同步块数据
 	go func() {
+		timer := time.NewTicker(FirstTimeInterval * time.Second)
 		for {
-			<-time.NewTicker(FirstTimeInterval * time.Second).C
-			timingFirst()
+			select {
+			case <-timer.C:
+				timingFirst()
+			}
+
 		}
 	}()
 	//定时同步块数据
 	go func() {
+		timer := time.NewTicker(TimeInterval * time.Second)
 		for {
-			<-time.NewTicker(TimeInterval * time.Second).C
-			timing()
+			select {
+			case <-timer.C:
+				timing()
+			}
 		}
 	}()
 	//测试块共享节点
