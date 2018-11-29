@@ -13,18 +13,15 @@ package mining
 */
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"sync"
-	//	"sync"
-	"time"
 	"polarcloud/config"
 	"polarcloud/core/engine"
 	mc "polarcloud/core/message_center"
 	"polarcloud/core/nodeStore"
 	"polarcloud/core/utils"
 	"polarcloud/wallet/keystore"
+	"time"
 )
 
 ////参与挖矿竟票计数器
@@ -200,7 +197,7 @@ func MulticastBallotTicket(deposit *[]byte, addr *utils.Multihash) {
 		Deposit: *deposit,          //见证人押金交易id
 	}
 
-	AddBallotTicket(&bt)
+	//	AddBallotTicket(&bt)
 
 	head := mc.NewMessageHead(nil, nil, false)
 	body := mc.NewMessageBody(bt.Json(), "", nil, 0)
@@ -234,89 +231,89 @@ func MulticastBallotTicket(deposit *[]byte, addr *utils.Multihash) {
 /*
 	增加一个选票
 */
-func AddBallotTicket(bt *BallotTicket) {
-	//	fmt.Println("增加选票到交易", hex.EncodeToString(bt.Deposit))
-	//	bhBs, err := db.Find(bt.Deposit)
-	//	if err != nil {
-	//		//		fmt.Println("11111", err)
-	//		return
-	//	}
-	//	txItr, err := ParseTxBase(bhBs)
-	//	if err != nil {
-	//		return
-	//	}
-	//	base := txItr.(*Tx_deposit_in)
-	//	//	fmt.Println("选票区块id", hex.EncodeToString(base.BlockHash))
-	//	bhBs, err = db.Find(base.BlockHash)
-	//	if err != nil {
-	//		return
-	//	}
+//func AddBallotTicket(bt *BallotTicket) {
+//	//	fmt.Println("增加选票到交易", hex.EncodeToString(bt.Deposit))
+//	//	bhBs, err := db.Find(bt.Deposit)
+//	//	if err != nil {
+//	//		//		fmt.Println("11111", err)
+//	//		return
+//	//	}
+//	//	txItr, err := ParseTxBase(bhBs)
+//	//	if err != nil {
+//	//		return
+//	//	}
+//	//	base := txItr.(*Tx_deposit_in)
+//	//	//	fmt.Println("选票区块id", hex.EncodeToString(base.BlockHash))
+//	//	bhBs, err = db.Find(base.BlockHash)
+//	//	if err != nil {
+//	//		return
+//	//	}
 
-	//	fmt.Println("找到的块", string(*bhBs))
-	//	bh, err := ParseBlockHead(bhBs)
-	//	if err != nil {
-	//		//		fmt.Println("22222", err)
-	//		return
-	//	}
-	//	fmt.Println("应该添加投票到区块", bh.Height, hex.EncodeToString(bh.Hash))
-	//	chain.PrintBlockList()
+//	//	fmt.Println("找到的块", string(*bhBs))
+//	//	bh, err := ParseBlockHead(bhBs)
+//	//	if err != nil {
+//	//		//		fmt.Println("22222", err)
+//	//		return
+//	//	}
+//	//	fmt.Println("应该添加投票到区块", bh.Height, hex.EncodeToString(bh.Hash))
+//	//	chain.PrintBlockList()
 
-	witness := chain.witnessChain.GetBackupWitness()
-	for {
-		if witness == nil {
-			break
-		}
-		if hex.EncodeToString(witness.DepositId) == hex.EncodeToString(bt.Deposit) {
-			break
-		}
-		if witness.NextWitness == nil {
-			//未找到
-			return
-		}
-		witness = witness.NextWitness
-	}
-	if witness == nil {
-		return
-	}
+//	witness := chain.witnessChain.GetBackupWitness()
+//	for {
+//		if witness == nil {
+//			break
+//		}
+//		if hex.EncodeToString(witness.DepositId) == hex.EncodeToString(bt.Deposit) {
+//			break
+//		}
+//		if witness.NextWitness == nil {
+//			//未找到
+//			return
+//		}
+//		witness = witness.NextWitness
+//	}
+//	if witness == nil {
+//		return
+//	}
 
-	//	block := chain.GetLastBlock()
-	//	for {
-	//		if block.Height == bh.Height {
-	//			break
-	//		}
-	//		if block.PreBlock == nil {
-	//			//			fmt.Println("33333", block.Height, bh.Height)
-	//			return
-	//		}
-	//		block = block.PreBlock
-	//	}
-	//	fmt.Println("添加投票到区块", block.Height)
+//	//	block := chain.GetLastBlock()
+//	//	for {
+//	//		if block.Height == bh.Height {
+//	//			break
+//	//		}
+//	//		if block.PreBlock == nil {
+//	//			//			fmt.Println("33333", block.Height, bh.Height)
+//	//			return
+//	//		}
+//	//		block = block.PreBlock
+//	//	}
+//	//	fmt.Println("添加投票到区块", block.Height)
 
-	//	bs := bt.Json()
-	//	id := utils.Hash_SHA3_256(*bs)
+//	//	bs := bt.Json()
+//	//	id := utils.Hash_SHA3_256(*bs)
 
-	if witness.ElectionMap == nil {
-		witness.ElectionMap = new(sync.Map)
-	}
-	witness.ElectionMap.Store(bt.Addr.B58String(), bt)
+//	if witness.ElectionMap == nil {
+//		witness.ElectionMap = new(sync.Map)
+//	}
+//	witness.ElectionMap.Store(bt.Addr.B58String(), bt)
 
-	//	value, ok := block.ElectionMap.Load(hex.EncodeToString(bt.Deposit))
-	//	//	fmt.Println("选票的交易id", ok, hex.EncodeToString(bt.Deposit))
-	//	if ok {
-	//		bts := value.(*sync.Map)
-	//		bts.Store(hex.EncodeToString(id), bt)
-	//		block.ElectionMap.Store(hex.EncodeToString(bt.Deposit), bts)
+//	//	value, ok := block.ElectionMap.Load(hex.EncodeToString(bt.Deposit))
+//	//	//	fmt.Println("选票的交易id", ok, hex.EncodeToString(bt.Deposit))
+//	//	if ok {
+//	//		bts := value.(*sync.Map)
+//	//		bts.Store(hex.EncodeToString(id), bt)
+//	//		block.ElectionMap.Store(hex.EncodeToString(bt.Deposit), bts)
 
-	//		total := 0
-	//		block.ElectionMap.Range(func(k, v interface{}) bool { total++; return true })
-	//		//		fmt.Println("----1111", total)
-	//		return
-	//	}
-	//	bts := new(sync.Map)
-	//	bts.Store(hex.EncodeToString(id), bt)
-	//	block.ElectionMap.Store(hex.EncodeToString(bt.Deposit), bts)
+//	//		total := 0
+//	//		block.ElectionMap.Range(func(k, v interface{}) bool { total++; return true })
+//	//		//		fmt.Println("----1111", total)
+//	//		return
+//	//	}
+//	//	bts := new(sync.Map)
+//	//	bts.Store(hex.EncodeToString(id), bt)
+//	//	block.ElectionMap.Store(hex.EncodeToString(bt.Deposit), bts)
 
-	//	total := 0
-	//	block.ElectionMap.Range(func(k, v interface{}) bool { total++; return true })
-	//	fmt.Println("----2222", total)
-}
+//	//	total := 0
+//	//	block.ElectionMap.Range(func(k, v interface{}) bool { total++; return true })
+//	//	fmt.Println("----2222", total)
+//}

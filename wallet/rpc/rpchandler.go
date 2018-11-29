@@ -16,7 +16,8 @@ var rpcHandler = map[string]serverHandler{
 	"listaccounts":    handleListAccounts,    //帐号列表{"method":"listaccounts"}
 	"getaccount":      handleGetAccount,      //获取某一帐号余额{"method":"getaccount","params":{"address":"1AX9mfCRZkdEg5Ci3G5SLcyGgecj6GTzLo"}}
 	"validateaddress": handleValidateAddress, //验证地址{"method":"validateaddress","params":{"address":"12EUY1EVnLJe4Ejb1VaL9NbuDQbBEV"}}
-	"sendtoaddress":   sendToAddress,
+	"sendtoaddress":   sendToAddress,         //
+	"depositin":       depositIn,             //缴纳押金，成为见证人
 }
 
 //获取基本信息
@@ -182,5 +183,30 @@ func sendToAddress(rj *rpcJson) (res []byte, err error) {
 		return
 	}
 	res, err = tojson(txpay)
+	return
+}
+
+//缴纳押金，成为见证人
+//{
+//    "jsonrpc": "2.0",
+//    "code": 2000,
+//    "result": {
+//        "12FRzz2xrVtEm9cwzgFArrLE7VA7ks": 0,
+//        "12GJJknncS2MmbXh26ZHAMbd3CjCHy": 0,
+//        "12Hixu5fzDrVoQt1fDL5vHw2Aahw1q": 0
+//    }
+//}
+func depositIn(rj *rpcJson) (res []byte, err error) {
+	amountItr, ok := rj.Get("amount")
+	if !ok {
+		res, err = errcode(5002, "amount")
+		return
+	}
+	amount := uint64(amountItr.(float64))
+	err = mining.DepositIn(amount)
+	if err == nil {
+		//		res = []byte("success")
+		res, err = tojson("success")
+	}
 	return
 }

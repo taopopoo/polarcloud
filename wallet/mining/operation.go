@@ -4,13 +4,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sync/atomic"
 	"polarcloud/config"
 	"polarcloud/core/engine"
 	mc "polarcloud/core/message_center"
 	"polarcloud/core/nodeStore"
 	"polarcloud/core/utils"
 	"polarcloud/wallet/keystore"
+	"sync/atomic"
 )
 
 /*
@@ -222,4 +222,17 @@ func getValueForNeighbor(bhash *[]byte) *[]byte {
 		}
 	}
 	return bs
+}
+
+/*
+	缴纳押金，成为备用见证人
+*/
+func DepositIn(amount uint64) error {
+	//缴纳备用见证人押金交易
+	err := chain.witnessChain.PayDeposit(amount)
+	if err != nil {
+		fmt.Println("缴纳押金失败", err)
+	}
+	fmt.Println("缴纳押金完成")
+	return err
 }

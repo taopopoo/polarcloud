@@ -172,16 +172,28 @@ func (this *BlockHead) Check() bool {
 
 /*
 	寻找幸运数字
+	@zoroes        uint64       难度，前导零数量
+	@stopSignal    chan bool    停止信号 true=已经找到；false=未找到，被终止；
 */
-func (this *BlockHead) FindNonce(zoroes uint64) {
+func (this *BlockHead) FindNonce(zoroes uint64, stopSignal chan bool) chan bool {
 	fmt.Println("开始工作，寻找幸运数字。请等待...")
-	for {
+	result := make(chan bool, 1)
+	stop := false
+	for !stop {
 		this.Nonce++
 		this.BuildHash()
 		if utils.CheckNonce(this.Hash, zoroes) {
-			break
+			result <- true
+			return result
+		}
+		select {
+		case <-stopSignal:
+			stop = true
+		default:
 		}
 	}
+	result <- false
+	return result
 }
 
 /*

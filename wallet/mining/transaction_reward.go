@@ -5,9 +5,9 @@ package mining
 
 import (
 	"encoding/binary"
-	"encoding/hex"
+	//	"encoding/hex"
 	"encoding/json"
-	"fmt"
+	//	"fmt"
 	"polarcloud/config"
 	"polarcloud/core/utils"
 	"polarcloud/wallet/db"
@@ -64,7 +64,7 @@ func (this *Tx_reward) BuildHash() {
 	id := make([]byte, 8)
 	binary.PutUvarint(id, config.Wallet_tx_type_mining)
 	this.Hash = append(id, utils.Hash_SHA3_256(bs)...)
-	fmt.Println("构建的带交易类型的hash", hex.EncodeToString(this.Hash))
+	//	fmt.Println("构建的带交易类型的hash", hex.EncodeToString(this.Hash))
 	//	fmt.Println("交易信息", string(bs))
 }
 

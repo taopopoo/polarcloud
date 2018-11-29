@@ -5,6 +5,7 @@
 package mining
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -178,8 +179,13 @@ func (this *Tx_deposit_out) SetTxid(index uint64, txid *[]byte) error {
 
 /*
 	创建一个见证人押金交易
+	@amount    uint64    押金额度
 */
-func CreateTxDepositIn(key *keystore.Address) *Tx_deposit_in {
+func CreateTxDepositIn(key *keystore.Address, amount uint64) *Tx_deposit_in {
+	if amount < config.Mining_deposit {
+		fmt.Println("交押金数量最少", config.Mining_deposit)
+		return nil
+	}
 	b := FindBalanceOne(key.Hash)
 	if b == nil {
 		fmt.Println("++++押金不够")
@@ -202,7 +208,7 @@ func CreateTxDepositIn(key *keystore.Address) *Tx_deposit_in {
 
 		var sign *[]byte
 		for _, two := range *txItr.GetVout() {
-			if two.Address.B58String() == key.Hash.B58String() {
+			if bytes.Equal(two.Address, *key.Hash) {
 				bs, err := two.CheckJson()
 				if err != nil {
 					return false
@@ -227,7 +233,7 @@ func CreateTxDepositIn(key *keystore.Address) *Tx_deposit_in {
 		vins = append(vins, vin)
 
 		total = total + item.Value
-		if total >= config.Mining_deposit {
+		if total >= amount {
 			return false
 		}
 		return true
@@ -236,7 +242,7 @@ func CreateTxDepositIn(key *keystore.Address) *Tx_deposit_in {
 	//	for _, one := range b.Txs {
 
 	//	}
-	if total < config.Mining_deposit {
+	if total < amount {
 		//押金不够
 		fmt.Println("++++押金不够222")
 		return nil
@@ -245,15 +251,15 @@ func CreateTxDepositIn(key *keystore.Address) *Tx_deposit_in {
 	//构建交易输出
 	vouts := make([]Vout, 0)
 	vout := Vout{
-		Value:   config.Mining_deposit, //输出金额 = 实际金额 * 100000000
-		Address: *key.Hash,             //钱包地址
+		Value:   amount,    //输出金额 = 实际金额 * 100000000
+		Address: *key.Hash, //钱包地址
 	}
 	vouts = append(vouts, vout)
 	//检查押金是否刚刚好，多了的转账给自己
-	if total > config.Mining_deposit {
+	if total > amount {
 		vout := Vout{
-			Value:   total - config.Mining_deposit, //输出金额 = 实际金额 * 100000000
-			Address: *key.Hash,                     //钱包地址
+			Value:   total - amount, //输出金额 = 实际金额 * 100000000
+			Address: *key.Hash,      //钱包地址
 		}
 		vouts = append(vouts, vout)
 	}

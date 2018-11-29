@@ -38,13 +38,16 @@ const (
 //}
 
 const (
-	Mining_block_time = 10      //出块时间，单位：秒
-	Mining_group_min  = 3       //挖矿组最少成员，少于最少成员不出块
-	Mining_group_max  = 7       //挖矿组最多成员，最多只有这么多个成员构成一个组
-	Mining_group_lock = 10      //锁定链上10组矿工不参与竟票，除非无新人参与竟票
-	Mining_deposit    = 1 * 1e8 //押金最少金额
-	Mining_reward     = 1 * 1e8 //出块奖励
-	Mining_gas        = 1       //交易矿工费
+	Mining_block_time  = 10               //出块时间，单位：秒
+	Mining_group_min   = 3                //挖矿组最少成员，少于最少成员不出块
+	Mining_group_max   = 7                //挖矿组最多成员，最多只有这么多个成员构成一个组
+	Mining_group_lock  = 10               //锁定链上10组矿工不参与竟票，除非无新人参与竟票
+	Mining_deposit     = 1 * 1e8          //押金最少金额
+	Mining_reward      = 1 * 1e8          //出块奖励
+	Mining_gas         = 1                //交易矿工费
+	Mining_difficulty  = 20               //出块难度，前导零个数
+	Witness_backup_min = Mining_group_min //备用见证人数需要满足见证人组最少数量
+	Witness_backup_max = 100              //备用见证人排名靠前的最多数量，之后的人依然是选举中的备用见证人。
 )
 
 const (

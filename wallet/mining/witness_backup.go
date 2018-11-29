@@ -2,13 +2,29 @@ package mining
 
 import (
 	"bytes"
-	"sync"
+	"fmt"
 	"polarcloud/config"
 	"polarcloud/core/utils"
+	"sort"
+	"sync"
 )
 
 var witnessesLock = new(sync.RWMutex)
-var witnesses = make([]BackupWitness, 0)
+var witnesses = make(WitnessBackup, 0)
+
+type WitnessBackup []BackupWitness
+
+func (this WitnessBackup) Len() int {
+	return len(this)
+}
+
+func (this WitnessBackup) Less(i, j int) bool {
+	return this[i].Score < this[j].Score
+}
+
+func (this WitnessBackup) Swap(i, j int) {
+	this[i], this[j] = this[j], this[i]
+}
 
 /*
 	添加一个见证人到投票列表
@@ -48,11 +64,17 @@ type BackupWitness struct {
 
 /*
 	根据这一时刻见证人投票排序，生成见证人链
+	@return    *Witness    备用见证人链中的一个见证人指针
 */
 func CreateWitnessGroup() *Witness {
-	if len(witnesses) < config.Mining_group_min {
+	if len(witnesses) < config.Witness_backup_min {
 		return nil
 	}
+
+	witnessesLock.Lock()
+	sort.Sort(witnesses)
+	witnessesLock.Unlock()
+
 	var startWitness *Witness
 	lastWitness := new(Witness)
 	//	var lastWitness *Witness
@@ -60,6 +82,9 @@ func CreateWitnessGroup() *Witness {
 		if i == 0 {
 			lastWitness.Addr = one.Addr
 			startWitness = lastWitness
+		} else if i >= config.Witness_backup_max {
+			//只获取排名靠前的n个备用见证人
+			break
 		} else {
 			newWitness := new(Witness)
 			newWitness.Addr = one.Addr
@@ -67,6 +92,26 @@ func CreateWitnessGroup() *Witness {
 			lastWitness.NextWitness = newWitness
 			lastWitness = newWitness
 		}
+
 	}
 	return startWitness
+}
+
+/*
+	打印备用见证人列表
+*/
+func PrintWitnessBackup() {
+	fmt.Println("打印备用见证人")
+	witnessesLock.Lock()
+	sort.Sort(witnesses)
+	witnessesLock.Unlock()
+
+	for i, one := range witnesses {
+		if i >= config.Witness_backup_max {
+			//只获取排名靠前的n个备用见证人
+			break
+		} else {
+			fmt.Println("备用见证人", i, one.Addr.B58String())
+		}
+	}
 }

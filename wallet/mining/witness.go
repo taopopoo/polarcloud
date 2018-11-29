@@ -1,11 +1,12 @@
 package mining
 
 import (
-	"encoding/hex"
+	"bytes"
 	"fmt"
-	"sync"
 	"polarcloud/config"
 	"polarcloud/core/utils"
+	"sync"
+	"time"
 )
 
 /*
@@ -14,14 +15,17 @@ import (
 	当交了押金后，被分配到见证人组
 */
 type WitnessChain struct {
-	group       *WitnessGroup //保存最新构建的见证人组
-	lastWitness *Witness      //最后一个见证人引用
+	beforeGroup          *WitnessGroup //上一组见证人
+	group                *WitnessGroup //正在出块的见证人组
+	firstWitnessNotGroup *Witness      //首个未分配组的见证人引用
+	lastWitnessNotGroup  *Witness      //最后一个未分配组的见证人引用
 }
 
 /*
 	见证人组
 */
 type WitnessGroup struct {
+	Task      bool          //是否已经定时出块
 	PreGroup  *WitnessGroup //上一个组
 	NextGroup *WitnessGroup //下一个组
 	Height    uint64        //见证人组高度
@@ -42,6 +46,68 @@ type Witness struct {
 }
 
 /*
+	依次获取n个未分配组的见证人，构建一个新的见证人组
+*/
+func (this *WitnessChain) BuildGroupForNum() {
+	//先检查人数是否足够
+	witnessGroup := this.GetOneGroupWitness()
+
+	//见证人太少，从备用见证人中评选出新的见证人
+	if len(witnessGroup) < config.Mining_group_min {
+		//从备用见证人中构建见证人组
+		witness := CreateWitnessGroup()
+		if witness == nil {
+			//备用见证人数量不够
+			fmt.Println("备用见证人数量不够")
+			this.PrintWitnessList()
+			//本组没有见证人，将当前见证人组设置为空
+			this.beforeGroup = this.group
+			this.group = nil
+			return
+		} else {
+			this.AddWitness(witness)
+		}
+	}
+
+	witnessGroup = this.GetOneGroupWitness()
+
+	if this.group != nil {
+		this.beforeGroup = this.group
+	}
+
+	blockHeight := chain.GetLastBlock().Group.Height + 1
+
+	newGroup := &WitnessGroup{
+		PreGroup: this.beforeGroup, //上一个组
+		Height:   blockHeight,      //
+		Witness:  witnessGroup,     //本组见证人列表
+	}
+	for i, _ := range witnessGroup {
+		witnessGroup[i].Group = newGroup
+	}
+	this.group = newGroup
+}
+
+/*
+	获取一组新的见证人组
+	从未分配组的见证人中按顺序获取一个组的见证人
+*/
+func (this *WitnessChain) GetOneGroupWitness() []*Witness {
+	witnessGroup := make([]*Witness, 0)
+	if this.firstWitnessNotGroup != nil {
+		tempWitness := this.firstWitnessNotGroup
+		for i := 0; i < config.Mining_group_max; i++ {
+			witnessGroup = append(witnessGroup, tempWitness)
+			if tempWitness.NextWitness == nil {
+				break
+			}
+			tempWitness = tempWitness.NextWitness
+		}
+	}
+	return witnessGroup
+}
+
+/*
 	获取
 */
 //func (this *WitnessChain) BuildWitnessGroupForNum(n, height uint64) bool {
@@ -53,80 +119,80 @@ type Witness struct {
 	@n         uint64    组人数
 	@height    uint64    组高度
 */
-func (this *WitnessChain) BuildWitnessGroupForNum(n, height uint64) bool {
-	if height == 0 {
-		//首个组需要指定组高度，后面的组不需要指定
-		if this.group == nil {
-			return false
-		}
-		group := this.group
-		for {
-			if group.NextGroup == nil {
-				break
-			}
-			group = group.NextGroup
-		}
-		height = group.Height + 1
-	}
-	fmt.Println("本次见证人组 人数", n, "组高度", height)
-	start := this.lastWitness
-	if this.group == nil {
-		for {
-			if start.PreWitness == nil {
-				break
-			}
-			start = start.PreWitness
-		}
-	} else {
-		if this.group.Witness[len(this.group.Witness)-1].NextWitness == nil {
-			return false
-		}
-		start = this.group.Witness[len(this.group.Witness)-1].NextWitness
-	}
-	witness := make([]*Witness, 0)
-	for i := 0; i < int(n); i++ {
-		witness = append(witness, start)
-		if start.NextWitness == nil {
-			break
-		} else {
-			start = start.NextWitness
-		}
-	}
-	if len(witness) < int(n) {
-		return false
-	}
-	newGroup := WitnessGroup{
-		Height:  height,  //
-		Witness: witness, //本组见证人列表
-	}
-	for i, _ := range newGroup.Witness {
-		newGroup.Witness[i].Group = &newGroup
-	}
-	if this.group == nil {
-		this.group = &newGroup
-		fmt.Println("构建新的见证人组")
+//func (this *WitnessChain) BuildWitnessGroupForNum(n, height uint64) bool {
+//	if height == 0 {
+//		//首个组需要指定组高度，后面的组不需要指定
+//		if this.group == nil {
+//			return false
+//		}
+//		group := this.group
+//		for {
+//			if group.NextGroup == nil {
+//				break
+//			}
+//			group = group.NextGroup
+//		}
+//		height = group.Height + 1
+//	}
+//	fmt.Println("本次见证人组 人数", n, "组高度", height)
+//	start := this.lastWitness
+//	if this.group == nil {
+//		for {
+//			if start.PreWitness == nil {
+//				break
+//			}
+//			start = start.PreWitness
+//		}
+//	} else {
+//		if this.group.Witness[len(this.group.Witness)-1].NextWitness == nil {
+//			return false
+//		}
+//		start = this.group.Witness[len(this.group.Witness)-1].NextWitness
+//	}
+//	witness := make([]*Witness, 0)
+//	for i := 0; i < int(n); i++ {
+//		witness = append(witness, start)
+//		if start.NextWitness == nil {
+//			break
+//		} else {
+//			start = start.NextWitness
+//		}
+//	}
+//	if len(witness) < int(n) {
+//		return false
+//	}
+//	newGroup := WitnessGroup{
+//		Height:  height,  //
+//		Witness: witness, //本组见证人列表
+//	}
+//	for i, _ := range newGroup.Witness {
+//		newGroup.Witness[i].Group = &newGroup
+//	}
+//	if this.group == nil {
+//		this.group = &newGroup
+//		fmt.Println("构建新的见证人组")
 
-	} else {
-		//把新的组保存链接到见证人组后面
-		group := this.group
-		for {
-			if group.NextGroup == nil {
-				break
-			}
-			group = group.NextGroup
-		}
-		group.NextGroup = &newGroup
-		newGroup.PreGroup = group
+//	} else {
+//		//把新的组保存链接到见证人组后面
+//		group := this.group
+//		for {
+//			if group.NextGroup == nil {
+//				break
+//			}
+//			group = group.NextGroup
+//		}
+//		group.NextGroup = &newGroup
+//		newGroup.PreGroup = group
 
-		//切换到下一个组
-		this.group = this.group.NextGroup
+//		//切换到下一个组
+//		this.group = this.group.NextGroup
 
-	}
+//	}
 
-	Mining()
+//	Mining()
 
-	return true
-}
+//	return true
+//}
 
 ///*
 //	构建一个新的见证人组
@@ -189,14 +255,27 @@ func (this *WitnessChain) BuildWitnessGroupForNum(n, height uint64) bool {
 */
 func (this *WitnessChain) AddWitness(newwitness *Witness) {
 	//	fmt.Println("++添加备用见证人", newwitness.Addr.B58String())
-	if this.lastWitness == nil {
-		this.lastWitness = newwitness
-		return
+	//	if this.lastWitness == nil {
+	//		this.lastWitness = newwitness
+	//		return
+	//	}
+	//	this.lastWitness.NextWitness = newwitness
+	//	newwitness.PreWitness = this.lastWitness
+	//	this.lastWitness = newwitness
+	if this.firstWitnessNotGroup == nil {
+		this.firstWitnessNotGroup = newwitness
+		this.lastWitnessNotGroup = newwitness
+	} else {
+		this.lastWitnessNotGroup.NextWitness = newwitness
 	}
-	this.lastWitness.NextWitness = newwitness
-	newwitness.PreWitness = this.lastWitness
-	this.lastWitness = newwitness
 
+	//让this.lastWitnessNotGroup保持引用最后一个见证人
+	for {
+		if this.lastWitnessNotGroup.NextWitness == nil {
+			break
+		}
+		this.lastWitnessNotGroup = this.lastWitnessNotGroup.NextWitness
+	}
 }
 
 /*
@@ -209,48 +288,50 @@ func (this *WitnessChain) AddWitness(newwitness *Witness) {
 /*
 	获取所有准备出块的见证人
 */
-func (this *WitnessChain) GetBackupWitness() *Witness {
-	next := this.lastWitness
-	for {
-		if next == nil || next.PreWitness == nil {
-			break
-		}
-		if next.PreWitness.Block != nil {
-			break
-		}
-		next = next.PreWitness
-	}
-	return next
-}
+//func (this *WitnessChain) GetBackupWitness() *Witness {
+//	next := this.lastWitness
+//	for {
+//		if next == nil || next.PreWitness == nil {
+//			break
+//		}
+//		if next.PreWitness.Block != nil {
+//			break
+//		}
+//		next = next.PreWitness
+//	}
+//	return next
+//}
 
 /*
 	打印见证人列表
 */
 func (this *WitnessChain) PrintWitnessList() {
+	//打印未分组的见证人列表
+	PrintWitnessBackup()
 
-	start := this.lastWitness
-	for {
-		if start.PreWitness == nil {
-			break
-		}
-		start = start.PreWitness
-	}
-	for {
-		groupHeight := uint64(0)
-		if start.Group != nil {
-			groupHeight = start.Group.Height
-		}
+	//	start := this.firstWitnessNotGroup
+	//	for {
+	//		if start.PreWitness == nil {
+	//			break
+	//		}
+	//		start = start.PreWitness
+	//	}
+	//	for {
+	//		groupHeight := uint64(0)
+	//		if start.Group != nil {
+	//			groupHeight = start.Group.Height
+	//		}
 
-		if start.Block == nil {
-			fmt.Println("打印见证人列表", hex.EncodeToString(start.DepositId), start.Addr.B58String(), "组高度", groupHeight)
-		} else {
-			fmt.Println("打印见证人列表", hex.EncodeToString(start.DepositId), start.Addr.B58String(), "组高度", groupHeight, "块高度", start.Block.Height)
-		}
-		if start.NextWitness == nil {
-			break
-		}
-		start = start.NextWitness
-	}
+	//		if start.Block == nil {
+	//			fmt.Println("打印见证人列表", hex.EncodeToString(start.DepositId), start.Addr.B58String(), "组高度", groupHeight)
+	//		} else {
+	//			fmt.Println("打印见证人列表", hex.EncodeToString(start.DepositId), start.Addr.B58String(), "组高度", groupHeight, "块高度", start.Block.Height)
+	//		}
+	//		if start.NextWitness == nil {
+	//			break
+	//		}
+	//		start = start.NextWitness
+	//	}
 }
 
 //func (this *WitnessChain) GetWitness() []*Witness {
@@ -276,6 +357,7 @@ func (this *WitnessChain) PrintWitnessList() {
 */
 func (this *WitnessChain) SetWitnessBlock(block *Block) (bool, bool) {
 	if this.group == nil {
+		this.BuildGroupForNum()
 		return false, false
 	}
 	group := this.group
@@ -287,11 +369,11 @@ func (this *WitnessChain) SetWitnessBlock(block *Block) (bool, bool) {
 		if err != nil {
 			return false, false
 		}
-		if one.Addr.B58String() == bh.Witness.B58String() {
+		if bytes.Equal(*one.Addr, bh.Witness) {
 			one.Block = block
-			//			fmt.Println(group.Height, len(group.Witness), i)
-			//			this.PrintWitnessList()
 			if len(group.Witness) == i+1 {
+				//是该组最后一个出块
+				this.BuildGroupForNum()
 				return true, true
 			}
 			return true, false
@@ -306,81 +388,113 @@ func (this *WitnessChain) SetWitnessBlock(block *Block) (bool, bool) {
 	从备用见证人中获取第一个备用分组，并且分组中只要有3个见证人被投票
 	@return    map[string]uint64    每个见证人的票数,key:string=见证人地址;value:uint64=票数;
 */
-func (this *WitnessChain) CountWitness() (map[string]uint64, map[string]uint64) {
-	//	fmt.Println("----开始统计见证人数\n")
-	countGroup := make(map[string]uint64)
-	witness := this.GetBackupWitness()
-	for i := 0; i < config.Mining_group_max; i++ {
-		//		fmt.Println("----开始统计见证人数 1111111")
-		if witness == nil {
-			break
-		}
-		if witness.ElectionMap == nil {
-			continue
-		}
-		count := uint64(0)
-		witness.ElectionMap.Range(func(k, v interface{}) bool { count++; return true })
-		countGroup[witness.Addr.B58String()] = count
-		witness = witness.NextWitness
-	}
-	rest := make(map[string]uint64)
-	//剩下的
-	for {
-		//		fmt.Println("----开始统计见证人数 222222222222")
-		if witness == nil {
-			break
-		}
-		if witness.ElectionMap == nil {
-			if witness.NextWitness != nil {
-				witness = witness.NextWitness
-				continue
-			}
-			break
-		}
-		count := uint64(0)
-		witness.ElectionMap.Range(func(k, v interface{}) bool { count++; return true })
-		rest[witness.Addr.B58String()] = count
-		witness = witness.NextWitness
-	}
-	return countGroup, rest
+//func (this *WitnessChain) CountWitness() (map[string]uint64, map[string]uint64) {
+//	//	fmt.Println("----开始统计见证人数\n")
+//	countGroup := make(map[string]uint64)
+//	witness := this.GetBackupWitness()
+//	for i := 0; i < config.Mining_group_max; i++ {
+//		//		fmt.Println("----开始统计见证人数 1111111")
+//		if witness == nil {
+//			break
+//		}
+//		if witness.ElectionMap == nil {
+//			continue
+//		}
+//		count := uint64(0)
+//		witness.ElectionMap.Range(func(k, v interface{}) bool { count++; return true })
+//		countGroup[witness.Addr.B58String()] = count
+//		witness = witness.NextWitness
+//	}
+//	rest := make(map[string]uint64)
+//	//剩下的
+//	for {
+//		//		fmt.Println("----开始统计见证人数 222222222222")
+//		if witness == nil {
+//			break
+//		}
+//		if witness.ElectionMap == nil {
+//			if witness.NextWitness != nil {
+//				witness = witness.NextWitness
+//				continue
+//			}
+//			break
+//		}
+//		count := uint64(0)
+//		witness.ElectionMap.Range(func(k, v interface{}) bool { count++; return true })
+//		rest[witness.Addr.B58String()] = count
+//		witness = witness.NextWitness
+//	}
+//	return countGroup, rest
 
-	//	count := new(sync.Map)
-	//	for _, one := range this.Blocks {
-	//		if one.ElectionMap == nil {
-	//			continue
-	//		}
-	//		one.ElectionMap.Range(func(k, v interface{}) bool {
-	//			count.Store(k, v)
-	//			//			fmt.Println("----统计见证人数", k, v)
-	//			return true
-	//		})
-	//	}
-	//	result := make(map[string]uint64) // uint64(0)
-	//	count.Range(func(k, v interface{}) bool {
-	//		witness := k.(string)
-	//		bts := v.(*sync.Map)
-	//		total := uint64(0)
-	//		bts.Range(func(k, v interface{}) bool { total++; return true })
-	//		result[witness] = total
-	//		return true
-	//	})
-	//	return result
-}
+//	//	count := new(sync.Map)
+//	//	for _, one := range this.Blocks {
+//	//		if one.ElectionMap == nil {
+//	//			continue
+//	//		}
+//	//		one.ElectionMap.Range(func(k, v interface{}) bool {
+//	//			count.Store(k, v)
+//	//			//			fmt.Println("----统计见证人数", k, v)
+//	//			return true
+//	//		})
+//	//	}
+//	//	result := make(map[string]uint64) // uint64(0)
+//	//	count.Range(func(k, v interface{}) bool {
+//	//		witness := k.(string)
+//	//		bts := v.(*sync.Map)
+//	//		total := uint64(0)
+//	//		bts.Range(func(k, v interface{}) bool { total++; return true })
+//	//		result[witness] = total
+//	//		return true
+//	//	})
+//	//	return result
+//}
 
 /*
 	在当前组中查找见证人
 */
-func (this *WitnessGroup) FindWitness(witness *utils.Multihash) bool {
+//func (this *WitnessGroup) FindWitness(witness *utils.Multihash) bool {
+//	for _, one := range this.Witness {
+//		if one.Block == nil {
+//			continue
+//		}
+//		for _, tx := range one.Block.DepositTx {
+//			deposit := tx.(*Tx_deposit_in)
+//			if witness.B58String() == deposit.GetWitness().B58String() {
+//				return true
+//			}
+//		}
+//	}
+//	return false
+//}
+
+/*
+	构建本组中的见证人出块奖励
+	按股权分配
+	只有见证人方式出块才统计
+*/
+func (this *WitnessGroup) CountReward() *Tx_reward {
+	//统计本组的出块奖励
+	vouts := make([]Vout, 0)
 	for _, one := range this.Witness {
 		if one.Block == nil {
 			continue
 		}
-		for _, tx := range one.Block.DepositTx {
-			deposit := tx.(*Tx_deposit_in)
-			if witness.B58String() == deposit.GetWitness().B58String() {
-				return true
-			}
+		vout := Vout{
+			Value:   config.Mining_reward,
+			Address: *one.Addr,
 		}
+		vouts = append(vouts, vout)
 	}
-	return false
+	base := TxBase{
+		Type:       config.Wallet_tx_type_mining, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
+		Vout_total: uint64(len(vouts)),           //输出交易数量
+		Vout:       vouts,                        //交易输出
+	}
+
+	txReward := Tx_reward{
+		TxBase:     base,
+		CreateTime: time.Now().Unix(), //创建时间
+	}
+	txReward.BuildHash()
+	return &txReward
 }

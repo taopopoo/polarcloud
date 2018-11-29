@@ -5,12 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sync"
-	"sync/atomic"
 	"polarcloud/config"
 	"polarcloud/core/engine"
 	mc "polarcloud/core/message_center"
 	"polarcloud/core/nodeStore"
+	"sync"
+	"sync/atomic"
 
 	//	"polarcloud/core/utils"
 	"polarcloud/wallet/db"
@@ -31,12 +31,23 @@ func init() {
 	添加一个区块到添加队列中去
 */
 func AddBlockHead(bhvo *BlockHeadVO) {
+	//	fmt.Println("将要保存的区块放入队列中 start", bhvo.BH.Height)
 	syncSaveBlockHead <- bhvo
+	//	fmt.Println("将要保存的区块放入队列中 end", bhvo.BH.Height)
 }
 
 func saveBlockHead() {
+	defer func() {
+		fmt.Println("+++保存区块的方法退出了+++")
+	}()
 	for {
+		//		fmt.Println("等待读取将要保存的区块")
 		bhvo := <-syncSaveBlockHead
+		//		fmt.Println("开始保存区块", bhvo.BH.Height)
+
+		//TODO 检查本节点是否是挖矿节点
+		stopFindNonce(bhvo.BH)
+		//		fmt.Println("111111111111111")
 
 		//保存区块中的交易
 		for i, one := range bhvo.Txs {
@@ -76,14 +87,11 @@ func saveBlockHead() {
 				}
 			}
 		}
+		//		fmt.Println("222222222222222")
 
-		//先将前一个区块修改next
-		if bhvo.BH.Height > atomic.LoadUint64(&chain.StartingBlock) && bhvo.BH.Height > 1 {
-			bs, err := db.Find(bhvo.BH.Previousblockhash)
-			if err != nil {
-				//TODO 区块未同步完整可以查找不到之前的区块
-				continue
-			}
+		//修改前一个区块的next
+		bs, err := db.Find(bhvo.BH.Previousblockhash)
+		if err == nil {
 			bh, err := ParseBlockHead(bs)
 			if err != nil {
 				fmt.Println("严重错误5", err)
@@ -101,8 +109,10 @@ func saveBlockHead() {
 			db.Save(bh.Hash, bs)
 		}
 
+		//		fmt.Println("33333333333333333333")
+
 		//保存区块
-		bs, err := bhvo.BH.Json()
+		bs, err = bhvo.BH.Json()
 		if err != nil {
 			//TODO 严谨的错误处理
 			fmt.Println("严重错误7", err)
@@ -110,6 +120,8 @@ func saveBlockHead() {
 		}
 		db.Save(bhvo.BH.Hash, bs)
 		//		chain.AddBlock(*bhvo.BH, &bhvo.Txs)
+
+		//		fmt.Println("44444444444444444444")
 
 		//删除已经打包了的交易
 		for _, one := range bhvo.Txs {
@@ -125,6 +137,8 @@ func saveBlockHead() {
 			atomic.StoreUint64(&chain.CurrentBlock, bhvo.BH.Height)
 		}
 
+		//		fmt.Println("555555555555555555")
+
 		chain.AddBlock(bhvo.BH, &bhvo.Txs)
 
 		//同步网络块高度
@@ -133,6 +147,8 @@ func saveBlockHead() {
 			continue
 		}
 		atomic.StoreUint64(&chain.HighestBlock, bhvo.BH.Height)
+
+		//		fmt.Println("666666666666666666")
 	}
 }
 
@@ -259,20 +275,24 @@ func FindBlockHeight() {
 	从邻居节点同步区块
 */
 func SyncBlockHead() error {
+	fmt.Println("+从邻居节点同步区块")
 
 	//获得本节点的最新块hash
 	var bhash *[]byte
 	lastBlock := chain.GetLastBlock()
 	if lastBlock == nil {
+		fmt.Println("+获取起始区块")
 		//获得本节点的最新块失败，重新同步
 		//从令居节点同步起始区块hash值
 		bhash = FindStartBlockForNeighbor()
 		if bhash == nil {
 			return errors.New("同步起始区块hash失败")
 		}
+		fmt.Println("同步到的创世区块hash", hex.EncodeToString(*bhash))
 	} else {
 		bhash = &lastBlock.Id
 	}
+	fmt.Println("+1111111111111")
 	//最新块一定要去邻居节点拉取一次，更新next
 	bsBH := getValueForNeighbor(bhash)
 	bh, err := ParseBlockHead(bsBH)
@@ -282,7 +302,7 @@ func SyncBlockHead() error {
 	if bh.Nextblockhash == nil {
 		return nil
 	}
-
+	fmt.Println("+222222222222222")
 	//覆盖保存区块
 	bs, err := bh.Json()
 	if err != nil {
@@ -290,6 +310,7 @@ func SyncBlockHead() error {
 	}
 	db.Save(*bhash, bs)
 
+	fmt.Println("+3333333333333")
 	for _, one := range bh.Nextblockhash {
 		deepCycleSyncBlock(&one)
 	}
@@ -303,10 +324,12 @@ func SyncBlockHead() error {
 	加载到出错或者加载完成为止
 */
 func deepCycleSyncBlock(bhash *[]byte) {
+	//	fmt.Println("本次同步hash", hex.EncodeToString(*bhash))
 	bh, err := syncBlockForDBAndNeighbor(bhash)
 	if err != nil {
 		return
 	}
+	//	fmt.Println("区块的next个数", len(bh.Nextblockhash))
 	for _, one := range bh.Nextblockhash {
 		deepCycleSyncBlock(&one)
 	}

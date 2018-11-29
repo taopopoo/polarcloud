@@ -6,9 +6,8 @@ package mining
 
 import (
 	"encoding/json"
-	"sync"
-	"polarcloud/config"
 	"polarcloud/core/utils"
+	"sync"
 )
 
 var groupMinersLock = new(sync.RWMutex)
@@ -112,60 +111,60 @@ func RemoveGroupBackupMiner(miners ...utils.Multihash) {
 /*
 	加载预备矿工组
 */
-func LoadGroupBackupMiner() error {
+//func LoadGroupBackupMiner() error {
 
-	group := chain.group
-	//向前10组开始查找预备矿工
-	for i := 0; i < 10; i++ {
-		if group.PreGroup == nil {
-			break
-		}
-		group = group.PreGroup
-	}
+//	group := chain.group
+//	//向前10组开始查找预备矿工
+//	for i := 0; i < 10; i++ {
+//		if group.PreGroup == nil {
+//			break
+//		}
+//		group = group.PreGroup
+//	}
 
-	for {
-		if group.NextGroup == nil && group.Height > 2 {
-			break
-		}
+//	for {
+//		if group.NextGroup == nil && group.Height > 2 {
+//			break
+//		}
 
-		//统计这个组中的见证人投票结果，并加入到备用矿工列表中
-		//		group.BuildWitness()
+//		//统计这个组中的见证人投票结果，并加入到备用矿工列表中
+//		//		group.BuildWitness()
 
-		if group.NextGroup == nil {
-			break
-		} else {
-			group = group.NextGroup
-		}
-	}
+//		if group.NextGroup == nil {
+//			break
+//		} else {
+//			group = group.NextGroup
+//		}
+//	}
 
-	//打印见证人
-	//	chain.witnessChain.PrintWitnessList()
+//	//打印见证人
+//	//	chain.witnessChain.PrintWitnessList()
 
-	return nil
-}
+//	return nil
+//}
 
 /*
 	计算矿工组投票结果
 */
-func countBackupGroupVote(bm []*BackupMiners) uint64 {
-	witness := chain.witnessChain.GetBackupWitness()
-	m := make(map[string]int)
-	count := uint64(0)
-	for i := 0; i < config.Mining_group_max; i++ {
-		//重复的备用见证人，归到下一组
-		if _, ok := m[witness.Addr.B58String()]; ok {
-			//要判断下下一组人数是否够最少人数
-			break
-		}
-		count++
-		m[witness.Addr.B58String()] = 0
-		if witness.NextWitness == nil {
-			break
-		}
-		witness = witness.NextWitness
-	}
-	return count
+//func countBackupGroupVote(bm []*BackupMiners) uint64 {
+//	witness := chain.witnessChain.GetBackupWitness()
+//	m := make(map[string]int)
+//	count := uint64(0)
+//	for i := 0; i < config.Mining_group_max; i++ {
+//		//重复的备用见证人，归到下一组
+//		if _, ok := m[witness.Addr.B58String()]; ok {
+//			//要判断下下一组人数是否够最少人数
+//			break
+//		}
+//		count++
+//		m[witness.Addr.B58String()] = 0
+//		if witness.NextWitness == nil {
+//			break
+//		}
+//		witness = witness.NextWitness
+//	}
+//	return count
 
-	//TODO 去掉最高票，去掉最低票，求平均
+//	//TODO 去掉最高票，去掉最低票，求平均
 
-}
+//}

@@ -3,16 +3,17 @@ package mining
 import (
 	"encoding/hex"
 	"fmt"
-	"sync/atomic"
 	"polarcloud/config"
 	"polarcloud/core/utils"
 	"polarcloud/wallet/db"
 	"polarcloud/wallet/keystore"
+	"sync/atomic"
 )
 
 var chain = new(Chain)
 
 func init() {
+	chain.forks = NewForks()
 	chain.witnessChain = new(WitnessChain)
 }
 
@@ -31,8 +32,10 @@ func FindLastGroupMiner() []utils.Multihash {
 }
 
 type Chain struct {
-	Init          bool          //是否是创世节点
-	group         *Group        //已经产出的区块链，只保留最后10个组，如果保留1年的块，内存占用超200M
+	Init bool //是否是创世节点
+
+	//	group         *Group        //已经产出的区块链，只保留最后10个组，如果保留1年的块，内存占用超200M
+	forks         *forks        //
 	witnessChain  *WitnessChain //见证人组链
 	StartingBlock uint64        //区块开始高度
 	HighestBlock  uint64        //网络节点的最高高度
@@ -175,12 +178,13 @@ type Group struct {
 //func (this *Group)
 
 type Block struct {
-	PreBlock  *Block  //前置区块高度
-	NextBlock *Block  //下一个区块高度
-	Group     *Group  //所属组
-	Height    uint64  //区块高度
-	Id        []byte  //区块id
-	DepositTx []TxItr //押金交易，每个组里的押金交易不能重复
+	PreBlock  *Block   //前置区块高度
+	NextBlock []*Block //下一个区块高度
+	Group     *Group   //所属组
+	Height    uint64   //区块高度
+	Id        []byte   //区块id
+	//	GroupHeight uint64 //区块组高度
+	//	DepositTx []TxItr  //押金交易，每个组里的押金交易不能重复
 
 }
 
@@ -243,15 +247,17 @@ func (this *Block) Load() (*BlockHead, error) {
 
 /*
 	获得链上最后一个区块
+	选择最长链的最后一个块
 */
-func (this *Block) GetLastBlock() *Block {
-	block := this
-	for {
-		if block.NextBlock == nil {
-			return block
-		}
-		block = block.NextBlock
-	}
+func (this *Block) GetLastBlocks() *Block {
+	return nil
+	//	block := this
+	//	for {
+	//		if block.NextBlock == nil {
+	//			return block
+	//		}
+	//		block = block.NextBlock
+	//	}
 }
 
 /*
@@ -282,18 +288,15 @@ func (this *Block) GetLastBlock() *Block {
 func (this *Chain) AddBlock(bh *BlockHead, txs *[]TxItr) bool {
 	fmt.Println("添加一个区块", bh.Height, hex.EncodeToString(bh.Hash))
 
+	//计算余额
 	CountBalanceForBlock(&BlockHeadVO{BH: bh, Txs: *txs})
 
-	newBlock := new(Block)
-	newBlock.Id = bh.Hash
-	newBlock.Height = bh.Height
-
-	depositTxs := make([]TxItr, 0)
+	//	depositTxs := make([]TxItr, 0)
 	for _, one := range *txs {
 		switch one.Class() {
-		//过滤见证人押金交易
+		//过滤见证人押金交易，添加见证人
 		case config.Wallet_tx_type_deposit_in:
-			depositTxs = append(depositTxs, one)
+			//			depositTxs = append(depositTxs, one)
 			addr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
 			if err != nil {
 				continue
@@ -302,124 +305,82 @@ func (this *Chain) AddBlock(bh *BlockHead, txs *[]TxItr) bool {
 			addWitness(addr, score)
 		}
 	}
-	newBlock.DepositTx = depositTxs
+	//	newBlock.DepositTx = depositTxs
 
-	//添加首个区块
-	if this.group == nil {
-		newGroup := new(Group)
-		newGroup.Blocks = make([]*Block, 0)
-		newBlock.Group = newGroup
-		newGroup.Blocks = append(newGroup.Blocks, newBlock)
-		newGroup.Height = bh.GroupHeight
-		this.group = newGroup
-		//		this.group.BuildWitness()
-		//		atomic.StoreUint64(&this.CurrentBlock, newBlock.Height)
-		fmt.Println("添加首个区块")
-
-	} else {
-		lastBlock := this.group.Blocks[0].GetLastBlock()
-		//判断区块高度是否连续
-		if (lastBlock.Height + 1) != bh.Height {
-			fmt.Println("添加的区块高度不连续")
-			return false
-		}
-
-		//TODO 赋值考虑异步安全 atomic
-		lastBlock.NextBlock = newBlock
-		newBlock.PreBlock = lastBlock
-
-		if bh.GroupHeight == lastBlock.Group.Height {
-			lastBlock.Group.Blocks = append(lastBlock.Group.Blocks, newBlock)
-			newBlock.Group = lastBlock.Group
-		} else {
-			//新的组
-			newGroup := new(Group)
-			newGroup.Blocks = make([]*Block, 0)
-			newBlock.Group = newGroup
-			newGroup.Blocks = append(newGroup.Blocks, newBlock)
-			newGroup.Height = bh.GroupHeight
-			newGroup.PreGroup = lastBlock.Group
-			lastBlock.Group.NextGroup = newGroup
-			this.group = newGroup
-		}
+	newBlock := this.forks.AddBlock(bh)
+	if newBlock == nil {
+		//区块不连续
+		return false
 	}
 
-	//	ok, last := this.witnessChain.SetWitnessBlock(newBlock)
-	//	fmt.Println("是否设置成功", ok, "是不是这个组的最后一个块", last)
-	//	if last {
-	//		//已经是这个组的最后一个块，可以统计投票结果
-	//		fmt.Println("已经是这个组的最后一个块，可以统计投票结果")
-	//		this.group.BuildWitness()
-	//	}
-	Mining()
+	this.witnessChain.SetWitnessBlock(newBlock)
+
+	go Mining()
 	return true
 }
 
 /*
 	获得首个区块
 */
-func (this *Chain) GetFirstBlock() *Block {
-	if this.group == nil {
-		return nil
-	}
-	group := this.group
-	for group.PreGroup != nil {
-		group = group.PreGroup
-	}
-	return group.Blocks[0]
-}
+//func (this *Chain) GetFirstBlock() *Block {
+//	if this.group == nil {
+//		return nil
+//	}
+//	group := this.group
+//	for group.PreGroup != nil {
+//		group = group.PreGroup
+//	}
+//	return group.Blocks[0]
+//}
 
 /*
 	获得最后一个区块
 */
 func (this *Chain) GetLastBlock() *Block {
-	if this.group == nil {
-		return nil
-	}
-	return this.group.Blocks[len(this.group.Blocks)-1]
+	return this.forks.HeightBlock
 }
 
 /*
 	检查投票
 */
-func (this *Chain) CheckVote(key *keystore.Address) {
-	//	this.witnessChain.PrintWitnessList()
-	next := this.witnessChain.GetBackupWitness()
-	for {
-		if next == nil {
-			break
-		}
-		//		fmt.Println("对比备用见证人投票地址", hex.EncodeToString(next.DepositId), next.Addr.B58String())
-		if next.Addr.B58String() == key.Hash.B58String() {
-			MulticastBallotTicket(&next.DepositId, next.Addr)
-		}
-		if next.NextWitness == nil {
-			break
-		}
-		next = next.NextWitness
-	}
-	//	this.witnessChain.PrintWitnessList()
-}
+//func (this *Chain) CheckVote(key *keystore.Address) {
+//	//	this.witnessChain.PrintWitnessList()
+//	next := this.witnessChain.GetBackupWitness()
+//	for {
+//		if next == nil {
+//			break
+//		}
+//		//		fmt.Println("对比备用见证人投票地址", hex.EncodeToString(next.DepositId), next.Addr.B58String())
+//		if next.Addr.B58String() == key.Hash.B58String() {
+//			MulticastBallotTicket(&next.DepositId, next.Addr)
+//		}
+//		if next.NextWitness == nil {
+//			break
+//		}
+//		next = next.NextWitness
+//	}
+//	//	this.witnessChain.PrintWitnessList()
+//}
 
 /*
 	打印块列表
 */
 func (this *Chain) PrintBlockList() {
 
-	start := this.GetLastBlock()
-	for {
-		if start.PreBlock == nil {
-			break
-		}
-		start = start.PreBlock
-	}
-	for {
-		fmt.Println("打印块列表", start.Height)
-		if start.NextBlock == nil {
-			break
-		}
-		start = start.NextBlock
-	}
+	//	start := this.GetLastBlock()
+	//	for {
+	//		if start.PreBlock == nil {
+	//			break
+	//		}
+	//		start = start.PreBlock
+	//	}
+	//	for {
+	//		fmt.Println("打印块列表", start.Height)
+	//		if start.NextBlock == nil {
+	//			break
+	//		}
+	//		start = start.NextBlock
+	//	}
 }
 
 /*

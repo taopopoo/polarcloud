@@ -3,8 +3,8 @@ package startblock
 import (
 	"encoding/hex"
 	"fmt"
-	"time"
 	"polarcloud/config"
+	"time"
 
 	"polarcloud/wallet/db"
 	"polarcloud/wallet/keystore"
@@ -67,7 +67,8 @@ func BuildFirstBlock() {
 		//				BackupMiner: , //备用矿工选举结果hash
 	}
 	blockHead1.BuildMerkleRoot()
-	blockHead1.FindNonce(20)
+
+	blockHead1.FindNonce(20, make(chan bool, 1))
 	//	db.Save(blockHead1.BackupMiner, backupMiner1.JSON())
 	bhbs, _ := blockHead1.Json()
 	db.Save(blockHead1.Hash, bhbs)

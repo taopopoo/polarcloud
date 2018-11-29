@@ -50,19 +50,14 @@ func MulticastVote_recv(c engine.Controller, msg engine.Packet) {
 		return
 	}
 
-	bt := ParseBallotTicket(message.Body.Content)
-
 	//	fmt.Println("--接收见证人投票广播", hex.EncodeToString(bt.Deposit))
 
 	//TODO 先验证选票是否合法
 
 	//TODO 再判断是否要为他投票
 
-	//	fmt.Println(string(*bt.Json()))
-	AddBallotTicket(bt)
-	//	for k, v := range FindTotal(bt.GroupHeight) {
-	//		fmt.Println(k, v)
-	//	}
+	//	bt := ParseBallotTicket(message.Body.Content)
+	//	AddBallotTicket(bt)
 
 	//继续广播给其他节点
 	if nodeStore.NodeSelf.IsSuper {
@@ -120,6 +115,7 @@ func MulticastBlockHead_recv(c engine.Controller, msg engine.Packet) {
 		fmt.Println("解析区块广播错误", err)
 		return
 	}
+	fmt.Println("接收区块广播", bhVO.BH.Height)
 	go AddBlockHead(bhVO)
 	//	go ImportBlock(bhVO)
 
