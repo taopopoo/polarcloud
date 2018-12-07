@@ -20,11 +20,30 @@ import (
 //同步保存区块头队列
 var syncSaveBlockHead = make(chan *BlockHeadVO, 1)
 
+//保存区块不连续信号
+var syncForNeighborChain = make(chan bool, 1)
+
 //var syncHeightBlock = new(sync.Map)
 //var heightBlockGroup = new(sync.WaitGroup)
 
 func init() {
 	go saveBlockHead()
+
+	go func() {
+		for range syncForNeighborChain {
+			LoadBlockChain()
+		}
+	}()
+}
+
+/*
+	通知加载区块到内存的信号
+*/
+func NoticeLoadBlockForDB() {
+	select {
+	case syncForNeighborChain <- true:
+	default:
+	}
 }
 
 /*
@@ -109,8 +128,6 @@ func saveBlockHead() {
 			db.Save(bh.Hash, bs)
 		}
 
-		//		fmt.Println("33333333333333333333")
-
 		//保存区块
 		bs, err = bhvo.BH.Json()
 		if err != nil {
@@ -119,36 +136,28 @@ func saveBlockHead() {
 			return
 		}
 		db.Save(bhvo.BH.Hash, bs)
-		//		chain.AddBlock(*bhvo.BH, &bhvo.Txs)
 
-		//		fmt.Println("44444444444444444444")
+		//		if bhvo.BH.Height == atomic.LoadUint64(&forks.StartingBlock) {
+		//			db.Save(config.Key_block_start, &bhvo.BH.Hash)
+		//		}
 
-		//删除已经打包了的交易
-		for _, one := range bhvo.Txs {
-			unpackedTransactions.Delete(hex.EncodeToString(*one.GetHash()))
+		//更新网络广播块高度
+		if bhvo.BH.Height > GetHighestBlock() {
+			atomic.StoreUint64(&forks.HighestBlock, bhvo.BH.Height)
 		}
 
-		//		headBlock.Store(bhvo.BH.Height, &bhvo.BH.Hash)
-		//		db.SaveBlockHeight(bhvo.BH.Height, &bhvo.BH.Hash)
-		if bhvo.BH.Height == atomic.LoadUint64(&chain.StartingBlock) {
-			db.Save(config.Key_block_start, &bhvo.BH.Hash)
+		//添加到内存
+		if !AddBlock(bhvo.BH, &bhvo.Txs) {
+			fmt.Println("------添加一个区块不连续")
+			//1.区块不连续.
+			//2.产生了分叉.
+			//3.本节点内存不同步.
+			//判断节点和内存不同步，重新加载区块到内存
+			if bhvo.BH.Height > GetCurrentBlock() {
+				//同步内存，从数据库加载到内存
+				NoticeLoadBlockForDB()
+			}
 		}
-		if GetCurrentBlock()+1 == bhvo.BH.Height {
-			atomic.StoreUint64(&chain.CurrentBlock, bhvo.BH.Height)
-		}
-
-		//		fmt.Println("555555555555555555")
-
-		chain.AddBlock(bhvo.BH, &bhvo.Txs)
-
-		//同步网络块高度
-		height := GetHighestBlock()
-		if bhvo.BH.Height <= height {
-			continue
-		}
-		atomic.StoreUint64(&chain.HighestBlock, bhvo.BH.Height)
-
-		//		fmt.Println("666666666666666666")
 	}
 }
 
@@ -185,7 +194,7 @@ func FindBlockHeight() {
 				//				startHeight := binary.LittleEndian.Uint64((*bs)[:8])
 				heightBlock := binary.LittleEndian.Uint64((*bs)[8:])
 				//收到的区块高度比自己低，则不保存
-				if atomic.LoadUint64(&chain.CurrentBlock) > heightBlock {
+				if GetCurrentBlock() > heightBlock {
 					continue
 				}
 
@@ -266,8 +275,8 @@ func FindBlockHeight() {
 	//TODO 考虑相同票数该选哪个
 	//直接使用票数最多的区块高度
 	//	atomic.StoreUint64(&chain.StartingBlock, 1)
-	atomic.StoreUint64(&chain.HighestBlock, heightBlock)
-	fmt.Println("收到的区块高度", heightBlock, "自己的高度", atomic.LoadUint64(&chain.CurrentBlock))
+	atomic.StoreUint64(&forks.HighestBlock, heightBlock)
+	fmt.Println("收到的区块高度", heightBlock, "自己的高度", atomic.LoadUint64(&forks.CurrentBlock))
 
 }
 
@@ -275,12 +284,14 @@ func FindBlockHeight() {
 	从邻居节点同步区块
 */
 func SyncBlockHead() error {
-	fmt.Println("+从邻居节点同步区块")
 
-	//获得本节点的最新块hash
+	fmt.Println("+从邻居节点同步区块")
+	//	var isStart bool //是否是起始区块
 	var bhash *[]byte
-	lastBlock := chain.GetLastBlock()
-	if lastBlock == nil {
+	//获得本节点的最新块hash
+	chain := forks.GetLongChain()
+	//	lastBlock := forks.GetLongChain().GetLastBlock()
+	if chain == nil {
 		fmt.Println("+获取起始区块")
 		//获得本节点的最新块失败，重新同步
 		//从令居节点同步起始区块hash值
@@ -289,28 +300,24 @@ func SyncBlockHead() error {
 			return errors.New("同步起始区块hash失败")
 		}
 		fmt.Println("同步到的创世区块hash", hex.EncodeToString(*bhash))
+		db.Save(config.Key_block_start, bhash)
 	} else {
-		bhash = &lastBlock.Id
+		bhash = &chain.GetLastBlock().Id
 	}
-	fmt.Println("+1111111111111")
 	//最新块一定要去邻居节点拉取一次，更新next
-	bsBH := getValueForNeighbor(bhash)
-	bh, err := ParseBlockHead(bsBH)
-	if err != nil {
-		return err
+	//	bhvo := FindBlockForNeighbor(bhash)
+	bh := syncBlockFlashDB(bhash)
+	if bh == nil {
+		return nil
 	}
+
+	bh.BuildHash()
+	fmt.Println("打印同步到的区块", hex.EncodeToString(bh.Hash))
+
 	if bh.Nextblockhash == nil {
 		return nil
 	}
-	fmt.Println("+222222222222222")
-	//覆盖保存区块
-	bs, err := bh.Json()
-	if err != nil {
-		return err
-	}
-	db.Save(*bhash, bs)
 
-	fmt.Println("+3333333333333")
 	for _, one := range bh.Nextblockhash {
 		deepCycleSyncBlock(&one)
 	}
@@ -324,12 +331,12 @@ func SyncBlockHead() error {
 	加载到出错或者加载完成为止
 */
 func deepCycleSyncBlock(bhash *[]byte) {
-	//	fmt.Println("本次同步hash", hex.EncodeToString(*bhash))
+	fmt.Println("本次同步hash", hex.EncodeToString(*bhash))
 	bh, err := syncBlockForDBAndNeighbor(bhash)
 	if err != nil {
 		return
 	}
-	//	fmt.Println("区块的next个数", len(bh.Nextblockhash))
+	fmt.Println("区块的next个数", len(bh.Nextblockhash), "高度", bh.Height)
 	for _, one := range bh.Nextblockhash {
 		deepCycleSyncBlock(&one)
 	}
@@ -424,4 +431,28 @@ func syncBlockForDBAndNeighbor(bhash *[]byte) (*BlockHead, error) {
 	db.Save(bhvo.BH.Hash, bs)
 
 	return bhvo.BH, nil
+}
+
+/*
+	同步区块并刷新本地数据库
+*/
+func syncBlockFlashDB(bhash *[]byte) *BlockHead {
+	bhvo := FindBlockForNeighbor(bhash)
+	if bhvo == nil {
+		return nil
+	}
+	bhvo.BH.BuildHash()
+	bs, err := bhvo.BH.Json()
+	if err != nil {
+		return nil
+	}
+	db.Save(*bhash, bs)
+	for _, one := range bhvo.Txs {
+		bs, err := one.Json()
+		if err != nil {
+			return nil
+		}
+		db.Save(*one.GetHash(), bs)
+	}
+	return bhvo.BH
 }

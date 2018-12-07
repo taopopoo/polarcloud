@@ -3,13 +3,13 @@ package mining
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
 	"polarcloud/config"
 	"polarcloud/core/engine"
 	mc "polarcloud/core/message_center"
 	"polarcloud/core/nodeStore"
 	"polarcloud/core/utils"
 	"polarcloud/wallet/db"
+	"sync"
 )
 
 const (
@@ -19,11 +19,6 @@ const (
 	BlockTx_Vout_Tx   = "tx"
 	BlockTx_Blockhash = "blockhash"
 )
-
-//保存网络中的交易
-//var txs = new(sync.Map)                  //保存未加入区块的交易,key=交易hahs id；value=&TxItr
-//var txWitness = new(sync.Map)            //见证人缴押金,key:string=交易hahs id；value=&TxItr
-var unpackedTransactions = new(sync.Map) //未打包的交易,key:string=交易hahs id；value=&TxItr
 
 type TxItr interface {
 	Class() uint64                            //交易类型

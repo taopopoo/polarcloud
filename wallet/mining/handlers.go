@@ -3,11 +3,7 @@ package mining
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
-	"sync/atomic"
-
-	//	"time"
 	"polarcloud/config"
 	"polarcloud/core/engine"
 	mc "polarcloud/core/message_center"
@@ -115,7 +111,7 @@ func MulticastBlockHead_recv(c engine.Controller, msg engine.Packet) {
 		fmt.Println("解析区块广播错误", err)
 		return
 	}
-	fmt.Println("接收区块广播", bhVO.BH.Height)
+	//	fmt.Println("接收区块广播", bhVO.BH.Height)
 	go AddBlockHead(bhVO)
 	//	go ImportBlock(bhVO)
 
@@ -162,13 +158,9 @@ func FindHeightBlock(c engine.Controller, msg engine.Packet) {
 		return
 	}
 
-	//	encoding.BinaryUnmarshaler
-	//	bs := make([]byte, 0)
-	//	binary.PutUvarint(bs, CurrentBlock)
-
 	dataBuf := bytes.NewBuffer([]byte{})
-	binary.Write(dataBuf, binary.LittleEndian, atomic.LoadUint64(&chain.StartingBlock))
-	binary.Write(dataBuf, binary.LittleEndian, atomic.LoadUint64(&chain.CurrentBlock))
+	binary.Write(dataBuf, binary.LittleEndian, GetStartingBlock())
+	binary.Write(dataBuf, binary.LittleEndian, GetCurrentBlock())
 	bs := dataBuf.Bytes()
 
 	mhead := mc.NewMessageHead(message.Head.Sender, message.Head.SenderSuperId, true)
@@ -197,14 +189,6 @@ func FindHeightBlock_recv(c engine.Controller, msg engine.Packet) {
 	}
 
 	mc.ResponseWait(mc.CLASS_findHeightBlock, message.Body.Hash.B58String(), message.Body.Content)
-
-	//	heightBlock := binary.LittleEndian.Uint64(*message.Body.Content)
-	//	fmt.Println("收到的区块高度", heightBlock)
-	//	//	CurrentBlock =
-	//	//TODO 延迟消息处理
-	//	syncHeightBlock.Store(msg.Session.GetName(), heightBlock)
-	//	heightBlockGroup.Done()
-
 }
 
 /*
@@ -357,7 +341,10 @@ func MulticastTransaction_recv(c engine.Controller, msg engine.Packet) {
 		fmt.Println("交易不合法，则不发送出去")
 		return
 	}
-	unpackedTransactions.Store(hex.EncodeToString(*txbase.GetHash()), txbase)
+
+	forks.GetLongChain().transactionManager.AddTx(txbase)
+
+	//	unpackedTransactions.Store(hex.EncodeToString(*txbase.GetHash()), txbase)
 
 	//继续广播给其他节点
 	if nodeStore.NodeSelf.IsSuper {

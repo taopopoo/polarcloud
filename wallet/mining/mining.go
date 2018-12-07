@@ -2,8 +2,6 @@ package mining
 
 import (
 	"bytes"
-	"encoding/hex"
-	"errors"
 	"fmt"
 	"log"
 	"polarcloud/config"
@@ -21,19 +19,20 @@ import (
 	当每个组见证人选出来之后，启动挖矿程序，按顺序定时出块
 */
 func Mining() {
-	if !config.Miner {
-		return
-	}
 	//判断是否同步完成
 	if GetHighestBlock() <= 0 {
-		fmt.Println("开始挖矿，但是区块未同步完成", GetHighestBlock())
+		fmt.Println("区块未同步完成，不能挖矿 GetHighestBlock", GetHighestBlock())
+		return
+	}
+	if GetHighestBlock() > GetCurrentBlock() {
+		fmt.Println("区块未同步完成，不能挖矿 GetCurrentBlock", GetCurrentBlock(), GetHighestBlock())
+		return
+	}
+	if !config.Miner {
 		return
 	}
 
 	fmt.Println("启动挖矿程序")
-
-	//交押金
-	//	Deposit()
 
 	addr, err := keystore.GetCoinbase()
 	if err != nil {
@@ -41,7 +40,7 @@ func Mining() {
 		return
 	}
 	//判断用什么方式出块
-	if chain.witnessChain.group == nil {
+	if forks.GetLongChain().witnessChain.group == nil {
 		//用工作量证明方式出块
 		fmt.Println("用工作量证明方式出块")
 		BuildBlockForPOW()
@@ -49,13 +48,14 @@ func Mining() {
 		//用见证人方式出块
 		fmt.Println("用见证人方式出块")
 		//判断是否已经安排了任务
-		if chain.witnessChain.group.Task {
+		if forks.GetLongChain().witnessChain.group.Task {
+			fmt.Println("已经安排了任务，退出")
 			return
 		}
-		chain.witnessChain.group.Task = true
+		forks.GetLongChain().witnessChain.group.Task = true
 
 		//判断自己出块顺序的时间
-		for i, one := range chain.witnessChain.group.Witness {
+		for i, one := range forks.GetLongChain().witnessChain.group.Witness {
 			//自己是见证人才能出块，否则自己出块了，其他节点也不会承认
 			if bytes.Equal(*one.Addr, *addr.Hash) {
 				fmt.Println("多少秒钟后出块", config.Mining_block_time*(i+1))
@@ -63,7 +63,6 @@ func Mining() {
 					TaskBuildBlock, Task_class_buildBlock, "")
 			}
 		}
-		fmt.Println("本节点没有在备用见证人中")
 	}
 
 }
@@ -83,7 +82,7 @@ func BuildBlock() {
 	}
 
 	//判断自己出块顺序的时间
-	for _, one := range chain.witnessChain.group.Witness {
+	for _, one := range forks.GetLongChain().witnessChain.group.Witness {
 		//自己是见证人才能出块，否则自己出块了，其他节点也不会承认
 		if one.Addr.B58String() == addr.Hash.B58String() {
 			this = one
@@ -100,6 +99,7 @@ func BuildBlock() {
 
 	<-time.NewTimer(time.Second * 10).C
 
+	chain := forks.GetLongChain()
 	lastBlock := chain.GetLastBlock()
 
 	if this.PreWitness != nil && this.PreWitness.Block != nil {
@@ -118,12 +118,9 @@ func BuildBlock() {
 	}
 
 	//打包10秒内的所有交易
-	unpackedTransactions.Range(func(k, v interface{}) bool {
-		txItr := v.(TxItr)
-		tx = append(tx, txItr)
-		txids = append(txids, *txItr.GetHash())
-		return true
-	})
+	txs, ids := chain.transactionManager.Package()
+	tx = append(tx, txs...)
+	txids = append(txids, ids...)
 
 	//准备块中的交易
 	//	fmt.Println("准备块中的交易")
@@ -194,13 +191,13 @@ func BuildBlockForPOW() {
 	reward.BuildHash()
 	txids = append(txids, reward.Hash)
 
+	chain := forks.GetLongChain()
+
 	//打包10秒内的所有交易
-	unpackedTransactions.Range(func(k, v interface{}) bool {
-		txItr := v.(TxItr)
-		txs = append(txs, txItr)
-		txids = append(txids, *txItr.GetHash())
-		return true
-	})
+	txss, ids := chain.transactionManager.Package()
+	fmt.Println("打包的交易", len(txss))
+	txs = append(txs, txss...)
+	txids = append(txids, ids...)
 
 	//准备块中的交易
 	//	fmt.Println("准备块中的交易")
@@ -236,46 +233,6 @@ func BuildBlockForPOW() {
 
 	fmt.Println("========出块完成======= 高度为", bhvo.BH.Height)
 	AddBlockHead(bhvo)
-}
-
-/*
-	缴纳押金，并广播
-*/
-func (this *WitnessChain) PayDeposit(amount uint64) error {
-	key, err := keystore.GetCoinbase()
-	if err != nil {
-		return err
-	}
-
-	deposiIn := CreateTxDepositIn(key, amount)
-	if deposiIn == nil {
-		//		fmt.Println("33333333333333 22222")
-		return errors.New("交押金失败")
-	}
-	deposiIn.BuildHash()
-	bs, err := deposiIn.Json()
-	if err != nil {
-		//		fmt.Println("33333333333333 33333")
-		return err
-	}
-	//	fmt.Println("4444444444444444")
-	MulticastTx(bs)
-	//	fmt.Println("5555555555555555")
-	txbase, err := ParseTxBase(bs)
-	if err != nil {
-		return err
-	}
-	txbase.BuildHash()
-	//	fmt.Println("66666666666666")
-	//验证交易
-	if !txbase.Check() {
-		//交易不合法，则不发送出去
-		fmt.Println("交易不合法，则不发送出去")
-		return errors.New("交易不合法，则不发送出去")
-	}
-	unpackedTransactions.Store(hex.EncodeToString(*txbase.GetHash()), txbase)
-	//	fmt.Println("7777777777777777")
-	return nil
 }
 
 /*
@@ -321,36 +278,6 @@ func Seekvote() {
 		//非超级节点不需要广播
 	}
 }
-
-///*
-//	开始挖矿
-//*/
-//func mining() {
-//	var countPow uint64 = 0
-
-//	//计算上一组旷工中股权分配
-//	vouts := make([]Vout, 0)
-//	miners := FindLastGroupMiner()
-//	for _, one := range miners {
-//		surplus := FindSurplus(one)
-//		vout := Vout{
-//			Value:   surplus,
-//			Address: one,
-//		}
-//		vouts = append(vouts, vout)
-//		countPow = countPow + surplus
-//	}
-//	//本次块旷工收益
-//	countBlanas := 25
-//	for i, one := range vouts {
-//		rat, _ := new(big.Rat).Mul(big.NewRat(int64(countBlanas), 1), big.NewRat(int64(one.Value), int64(countPow))).Float64()
-//		vouts[i].Value = uint64(rat * Unit)
-//	}
-
-//	//挖矿成功，广播区块头
-//	//	MulticastBlock()
-
-//}
 
 /*
 	广播挖到的区块

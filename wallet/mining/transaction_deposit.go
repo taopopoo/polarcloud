@@ -13,11 +13,11 @@ import (
 	"polarcloud/core/utils"
 	"polarcloud/wallet/db"
 	"polarcloud/wallet/keystore"
+	"time"
 )
 
 /*
-	竟票见证人成功，交押金
-	此交易不给手续费
+	交押金，成为备用见证人
 */
 type Tx_deposit_in struct {
 	TxBase
@@ -186,7 +186,8 @@ func CreateTxDepositIn(key *keystore.Address, amount uint64) *Tx_deposit_in {
 		fmt.Println("交押金数量最少", config.Mining_deposit)
 		return nil
 	}
-	b := FindBalanceOne(key.Hash)
+	chain := forks.GetLongChain()
+	b := chain.balance.FindBalanceOne(key.Hash)
 	if b == nil {
 		fmt.Println("++++押金不够")
 		return nil
@@ -250,6 +251,7 @@ func CreateTxDepositIn(key *keystore.Address, amount uint64) *Tx_deposit_in {
 
 	//构建交易输出
 	vouts := make([]Vout, 0)
+	//下标为0的交易输出是见证人押金，大于0的输出是多余的钱退还。
 	vout := Vout{
 		Value:   amount,    //输出金额 = 实际金额 * 100000000
 		Address: *key.Hash, //钱包地址
@@ -288,6 +290,94 @@ func CreateTxDepositIn(key *keystore.Address, amount uint64) *Tx_deposit_in {
 	}
 	txin := Tx_deposit_in{
 		TxBase: base,
+	}
+	txin.BuildHash()
+	return &txin
+}
+
+/*
+	创建一个退还押金交易
+	@amount    uint64    押金额度
+*/
+func CreateTxDepositOut(key *keystore.Address) *Tx_deposit_out {
+
+	chain := forks.GetLongChain()
+
+	item := chain.balance.GetDepositIn()
+	if item == nil {
+		fmt.Println("没有押金")
+		return nil
+	}
+
+	bs, err := db.Find(item.Txid)
+	if err != nil {
+		return nil
+	}
+	txItr, err := ParseTxBase(bs)
+	if err != nil {
+		return nil
+	}
+
+	var sign *[]byte
+	for _, two := range *txItr.GetVout() {
+		if bytes.Equal(two.Address, *key.Hash) {
+			bs, err := two.CheckJson()
+			if err != nil {
+				return nil
+			}
+			sign, err = key.Sign(*bs, "123456")
+			if err != nil {
+				return nil
+			}
+			break
+		}
+	}
+	if sign == nil {
+		return nil
+	}
+
+	vin := Vin{
+		Txid: item.Txid,       //UTXO 前一个交易的id
+		Vout: item.OutIndex,   //一个输出索引（vout），用于标识来自该交易的哪个UTXO被引用（第一个为零）
+		Puk:  key.GetPubKey(), //公钥
+		Sign: *sign,           //签名
+	}
+	vins := []Vin{vin} // append(vins, vin)
+
+	//构建交易输出
+	vouts := make([]Vout, 0)
+	//下标为0的交易输出是见证人押金，大于0的输出是多余的钱退还。
+	vout := Vout{
+		Value:   item.Value, //输出金额 = 实际金额 * 100000000
+		Address: *key.Hash,  //钱包地址
+	}
+	vouts = append(vouts, vout)
+
+	bs2, err := json.Marshal(vouts)
+	if err != nil {
+		fmt.Println("++++押金不够", err)
+		return nil
+	}
+
+	sign2, err := key.Sign(bs2, "123456")
+	if err != nil {
+		fmt.Println("++++押金不够", err)
+		return nil
+	}
+	for i, _ := range vins {
+		vins[i].VoutSign = *sign2
+	}
+
+	//
+	base := TxBase{
+		Type:      config.Wallet_tx_type_deposit_out, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
+		Vin_total: 1,                                 //输入交易数量
+		Vin:       vins,                              //交易输入
+		Vout:      vouts,                             //
+	}
+	txin := Tx_deposit_out{
+		TxBase:     base,
+		CreateTime: time.Now().Unix(),
 	}
 	txin.BuildHash()
 	return &txin

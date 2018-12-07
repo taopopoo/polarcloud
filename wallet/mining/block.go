@@ -33,120 +33,22 @@ func LoadBlockInDB() {
 
 }
 
-///*
-//	导入一个区块，把区块保存到数据库，并且载入内存
-//	@mining    bool    是否开始挖矿，未同步到最新的块，不开启挖矿
-//*/
-//func ImportBlock(bhvo *BlockHeadVO) error {
-//	currentBlock := atomic.LoadUint64(&chain.CurrentBlock) //已经同步到的区块高度
-//	if bhvo.BH.Height != currentBlock+1 {
-//		return nil
-//	}
-
-//	fmt.Println("====导入新的块", bhvo.BH.Height)
-//	atomic.StoreUint64(&chain.PulledStates, bhvo.BH.Height)
-//	//保存区块中的交易
-//	for _, one := range bhvo.Txs {
-//		one.BuildHash()
-//		bs, err := one.Json()
-//		if err != nil {
-//			//TODO 严谨的错误处理
-//			return err
-//		}
-//		//		fmt.Println("导入交易", hex.EncodeToString(*one.GetHash()))
-//		db.Save(*one.GetHash(), bs)
-
-//		//将之前的交易UTXO输出添加新的交易UTXO输入标记
-//		if one.Class() != config.Wallet_tx_type_deposit_in &&
-//			one.Class() != config.Wallet_tx_type_pay {
-//			continue
-//		}
-
-//		for _, two := range *one.GetVin() {
-//			txbs, err := db.Find(two.Txid)
-//			if err != nil {
-//				fmt.Println("查找错误", one.Class(), hex.EncodeToString(two.Txid))
-//				return err
-//			}
-//			txItr, err := ParseTxBase(txbs)
-//			if err != nil {
-//				return err
-//			}
-//			err = txItr.SetTxid(two.Vout, one.GetHash())
-//			if err != nil {
-//				return err
-//			}
-//		}
-
-//	}
-//	//保存区块中的见证人投票结果
-//	bs := bhvo.BM.JSON()
-//	bmid := utils.Hash_SHA3_256(*bs)
-//	db.Save(bmid, bs)
-
-//	//保存区块
-//	//先将前一个区块修改next
-//	block := chain.GetLastBlock()
-//	bh, err := block.Load()
-//	if err != nil {
-//		fmt.Println(err)
-//		return err
-//	}
-//	bh.Nextblockhash = bhvo.BH.Hash
-//	bs, err = bh.Json()
-//	if err != nil {
-//		fmt.Println(err)
-//		return err
-//	}
-//	db.Save(bh.Hash, bs)
-
-//	bs, err = bhvo.BH.Json()
-//	if err != nil {
-//		//TODO 严谨的错误处理
-//		return err
-//	}
-//	db.Save(bhvo.BH.Hash, bs)
-//	chain.AddBlock(bhvo.BH, &bhvo.Txs)
-
-//	//删除已经打包了的交易
-//	for _, one := range bhvo.Txs {
-//		txs.Delete(hex.EncodeToString(*one.GetHash()))
-//		txWitness.Delete(hex.EncodeToString(*one.GetHash()))
-//	}
-
-//	db.SaveBlockHeight(bhvo.BH.Height, &bhvo.BH.Hash)
-//	//	headBlock.Store(bhvo.BH.Height, &bhvo.BH.Hash)
-//	atomic.StoreUint64(&chain.CurrentBlock, bhvo.BH.Height)
-
-//	//将最新的交易计入余额
-//	//	CountBalanceForBlock(bhvo)
-
-//	//判断是否与网络同步，同步了就开始挖矿
-//	//	if atomic.LoadUint64(chain.CurrentBlock) == atomic.LoadUint64(chain.HighestBlock) {
-//	//	}
-//	//	chain.witnessChain.PrintWitnessList()
-
-//	go StartMining()
-//	return nil
-//}
-
 /*
 	区块头
 */
 type BlockHead struct {
-	Hash              []byte   `json:"Hash"`              //区块头hash
-	Height            uint64   `json:"Height"`            //区块高度(每秒产生一个块高度，uint64容量也足够使用上千亿年)
-	GroupHeight       uint64   `json:"GroupHeight"`       //矿工组高度
-	Previousblockhash []byte   `json:"Previousblockhash"` //上一个区块头hash
-	Nextblockhash     [][]byte `json:"Nextblockhash"`     //下一个区块头hash,可能有多个分叉，但是要保证排在第一的链是最长链
-	NTx               uint64   `json:"NTx"`               //交易数量
-	MerkleRoot        []byte   `json:"MerkleRoot"`        //交易默克尔树根hash
-	Tx                [][]byte `json:"Tx"`                //本区块包含的交易id
-	Time              int64    `json:"Time"`              //unix时间戳
-	//	BackupMiner       []byte          `json:"BackupMiner"`       //备用矿工选举结果hash
-	//	DepositId         []byte          `json:"DepositId"`         //押金交易id
-	Witness utils.Multihash `json:"Witness"` //此块见证人地址
-	Nonce   uint64          `json:"nonce"`   //随机数，用以调整当前区块头hash
+	Hash              []byte          `json:"Hash"`              //区块头hash
+	Height            uint64          `json:"Height"`            //区块高度(每秒产生一个块高度，uint64容量也足够使用上千亿年)
+	GroupHeight       uint64          `json:"GroupHeight"`       //矿工组高度
+	Previousblockhash []byte          `json:"Previousblockhash"` //上一个区块头hash
+	Nextblockhash     [][]byte        `json:"Nextblockhash"`     //下一个区块头hash,可能有多个分叉，但是要保证排在第一的链是最长链
+	NTx               uint64          `json:"NTx"`               //交易数量
+	MerkleRoot        []byte          `json:"MerkleRoot"`        //交易默克尔树根hash
+	Tx                [][]byte        `json:"Tx"`                //本区块包含的交易id
+	Time              int64           `json:"Time"`              //unix时间戳
+	Witness           utils.Multihash `json:"Witness"`           //此块见证人地址
+	Nonce             uint64          `json:"nonce"`             //随机数，用以调整当前区块头hash
+	Sign              []byte          `json:"sign"`              //见证人出块时，见证人对块签名，以证明本块是指定见证人出块。
 }
 
 /*

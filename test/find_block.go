@@ -43,7 +43,7 @@ func find(dir string) {
 			fmt.Println("解析第", i, "个块错误", err)
 			return
 		}
-		beforBlockHash = &bh.Nextblockhash
+		beforBlockHash = &bh.Nextblockhash[0]
 		isPrint := false
 		for _, one := range nums {
 			if one == i {

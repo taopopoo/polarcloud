@@ -18,6 +18,7 @@ var rpcHandler = map[string]serverHandler{
 	"validateaddress": handleValidateAddress, //验证地址{"method":"validateaddress","params":{"address":"12EUY1EVnLJe4Ejb1VaL9NbuDQbBEV"}}
 	"sendtoaddress":   sendToAddress,         //
 	"depositin":       depositIn,             //缴纳押金，成为见证人
+	"depositout":      depositOut,            //退还押金
 }
 
 //获取基本信息
@@ -204,6 +205,25 @@ func depositIn(rj *rpcJson) (res []byte, err error) {
 	}
 	amount := uint64(amountItr.(float64))
 	err = mining.DepositIn(amount)
+	if err == nil {
+		//		res = []byte("success")
+		res, err = tojson("success")
+	}
+	return
+}
+
+//退还押金
+//{
+//    "jsonrpc": "2.0",
+//    "code": 2000,
+//    "result": {
+//        "12FRzz2xrVtEm9cwzgFArrLE7VA7ks": 0,
+//        "12GJJknncS2MmbXh26ZHAMbd3CjCHy": 0,
+//        "12Hixu5fzDrVoQt1fDL5vHw2Aahw1q": 0
+//    }
+//}
+func depositOut(rj *rpcJson) (res []byte, err error) {
+	err = mining.DepositOut()
 	if err == nil {
 		//		res = []byte("success")
 		res, err = tojson("success")

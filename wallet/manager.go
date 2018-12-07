@@ -77,9 +77,6 @@ func Register() {
 		return
 	}
 
-	//同步邻居节点块高度
-	//	mining.FindBlockHeight()
-
 	//一边同步块，一边加载新块
 	//开始同步区块
 	err = mining.SyncBlockHead()

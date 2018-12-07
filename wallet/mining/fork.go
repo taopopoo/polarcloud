@@ -7,83 +7,82 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
-	"yunpan/wallet/db"
 )
 
-type forks struct {
-	HeightBlock *Block    //最高区块引用
-	HashMap     *sync.Map //保存每个分叉最高区块hash。key:string=区块hash;value:*Block=区块引用;
-	//	blocks      []*Block  //保存着多个分叉，区块高度最高的排名靠前。
+var forks = new(Forks)
+
+func init() {
+	forks.chains = new(sync.Map)
 }
 
-//func (this forks) Len() int {
-//	return len(this)
-//}
+type Forks struct {
+	Init          bool      //是否是创世节点
+	StartingBlock uint64    //区块开始高度
+	HighestBlock  uint64    //网络节点广播的区块最高高度
+	CurrentBlock  uint64    //内存中已经同步到的区块高度
+	PulledStates  uint64    //正在同步的区块高度
+	LongChain     *Chain    //最高区块引用
+	chains        *sync.Map //保存各个分叉链key:string=链最高块hash;value:*Chain=各个分叉链引用;
+}
 
-//func (this forks) Less(i, j int) bool {
-//	return this[i].Height < this[j].Height
-//}
+/*
+	获得最长链
+*/
+func (this *Forks) GetLongChain() *Chain {
+	return this.LongChain
+}
 
-//func (this forks) Swap(i, j int) {
-//	this[i], this[j] = this[j], this[i]
-//}
-
-//func (this *forks) Order() {
-//this.HashMap.Range()
-//}
+/*
+	获得最长链
+*/
+func (this *Forks) GetChain(beforeHash string) *Chain {
+	chainItr, ok := this.chains.Load(beforeHash)
+	if ok {
+		chain := chainItr.(*Chain)
+		return chain
+	}
+	return nil
+}
 
 /*
 	添加新的区块到分叉中
 */
-func (this *forks) AddBlock(bh *BlockHead) *Block {
+func (this *Forks) AddBlock(bh *BlockHead) *Chain {
+
 	newBlock := new(Block)
 	newBlock.Id = bh.Hash
 	newBlock.Height = bh.Height
 	newBlock.NextBlock = make([]*Block, 0)
 
-	//首个区块
-	//TODO 首个区块的判断标准
-	if this.HeightBlock == nil {
+	//系统中还没有链，创建首个链
+	if this.LongChain == nil {
+		if this.StartingBlock < bh.Height {
+			fmt.Println("创建首个链", this.StartingBlock, bh.Height)
+			return nil
+		}
 		newGroup := new(Group)
 		newGroup.Height = bh.GroupHeight
 		newGroup.Blocks = []*Block{newBlock}
 		newBlock.Group = newGroup
-		this.HashMap.Store(hex.EncodeToString(newBlock.Id), newBlock)
-		this.HeightBlock = newBlock
-		return newBlock
+		newChain := NewChain(newBlock)
+		this.chains.Store(hex.EncodeToString(newBlock.Id), newChain)
+		this.LongChain = newChain
+		return newChain
 	}
 
-	var beforeBlock *Block
-	beforBlockHash := hex.EncodeToString(bh.Previousblockhash)
-	blockItr, ok := this.HashMap.Load(beforBlockHash)
-	if ok {
-		beforeBlock = blockItr.(*Block)
-	} else {
-		//从数据库中其他节点建立的分叉
-		bs, err := db.Find(bh.Previousblockhash)
-		if err != nil {
-			fmt.Println("添加的区块高度不连续")
-			return nil
-		}
-		_, err = ParseBlockHead(bs)
-		if err != nil {
-			return nil
-		}
-
+	//获取本块所在的链
+	beforeBlockHash := hex.EncodeToString(bh.Previousblockhash)
+	chainItr, ok := this.chains.Load(beforeBlockHash)
+	if !ok {
 		//TODO 产生了新的分叉，考虑加载这个分叉之前的所有块
-
+		//TODO 可能是脱离主网太久
+		return nil
 	}
+	chain := chainItr.(*Chain)
+	beforeBlock := chain.GetLastBlock()
 
 	newBlock.PreBlock = beforeBlock
 	beforeBlock.NextBlock = append(beforeBlock.NextBlock, newBlock)
-	this.HashMap.Store(hex.EncodeToString(newBlock.Id), newBlock)
-	//TODO 暂时不删除旧区块，保存所有区块，保证所有区块能在内存中查到，避免从数据库中加载时候要加载之前的多个块.
-	//	this.HashMap.Delete(beforBlockHash)
-
-	//找出最高区块
-	if newBlock.Height > this.HeightBlock.Height {
-		this.HeightBlock = newBlock
-	}
 
 	//新的区块组
 	if bh.GroupHeight > beforeBlock.Group.Height {
@@ -99,15 +98,24 @@ func (this *forks) AddBlock(bh *BlockHead) *Block {
 		newBlock.Group = beforeBlock.Group
 	}
 
-	return newBlock
+	chain.lastBlock = newBlock
+	this.chains.Store(hex.EncodeToString(newBlock.Id), chain)
+	this.chains.Delete(beforeBlockHash)
+
+	//找出最高区块
+	if newBlock.Height > this.LongChain.lastBlock.Height {
+		this.LongChain = chain
+	}
+
+	return chain
 }
 
 /*
 	创建一个新的分叉管理器
 */
-func NewForks() *forks {
-	return &forks{
-		//			HeightBlock *Block    //最高区块引用
-		HashMap: new(sync.Map), //区块hash对应的区块引用。key:string=区块hash;value:*Block=区块引用;
-	}
-}
+//func NewForks() *Forks {
+//	return &Forks{
+//		//			HeightBlock *Block    //最高区块引用
+//		HashMap: new(sync.Map), //区块hash对应的区块引用。key:string=区块hash;value:*Block=区块引用;
+//	}
+//}

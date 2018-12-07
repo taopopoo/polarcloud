@@ -1,7 +1,6 @@
 package mining
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"polarcloud/config"
@@ -24,7 +23,11 @@ func GetBalance() uint64 {
 	for _, one := range keys {
 		addrs = append(addrs, one.Hash)
 	}
-	bs, err := FindBalance(addrs...)
+	chain := forks.GetLongChain()
+	if chain == nil {
+		return 0
+	}
+	bs, err := chain.balance.FindBalance(addrs...)
 	if err != nil {
 		fmt.Println("查询收益错误", err)
 		return count
@@ -44,7 +47,8 @@ func GetBalance() uint64 {
 */
 func GetBalanceForAddr(addr *utils.Multihash) uint64 {
 	count := uint64(0)
-	bs, err := FindBalance(addr)
+	chain := forks.GetLongChain()
+	bs, err := chain.balance.FindBalance(addr)
 	if err != nil {
 		fmt.Println("查询收益错误", err)
 		return count
@@ -63,53 +67,41 @@ func GetBalanceForAddr(addr *utils.Multihash) uint64 {
 	获取区块开始高度
 */
 func GetStartingBlock() uint64 {
-	return atomic.LoadUint64(&chain.StartingBlock)
+	return atomic.LoadUint64(&forks.StartingBlock)
 }
 
 /*
-	获取所链接的节点的最高高度
+	获取网络节点广播的区块最高高度
 */
 func GetHighestBlock() uint64 {
-	return atomic.LoadUint64(&chain.HighestBlock)
+	return atomic.LoadUint64(&forks.HighestBlock)
 }
 
 /*
 	获取已经同步到的区块高度
 */
 func GetCurrentBlock() uint64 {
-	return atomic.LoadUint64(&chain.CurrentBlock)
+	return atomic.LoadUint64(&forks.CurrentBlock)
 }
 
 /*
 	获取正在同步的区块高度
 */
 func GetPulledStates() uint64 {
-	return atomic.LoadUint64(&chain.PulledStates)
+	return atomic.LoadUint64(&forks.PulledStates)
 }
 
 /*
 	获取区块组高度
 */
 func GetGroupHeight() uint64 {
-	return chain.GetLastBlock().Group.Height
+	return forks.GetLongChain().GetLastBlock().Group.Height
 }
 
 /*
 	给收款地址转账
 */
 func SendToAddress(address *utils.Multihash, amount uint64, comment string) (*Tx_Pay, error) {
-	//	//构建utxo输出
-	//	vouts := make([]Vout, 0)
-	//	vout := Vout{
-	//		Value:   amount,   //输出金额 = 实际金额 * 100000000
-	//		Address: *address, //钱包地址
-	//	}
-	//	vouts = append(vouts, vout)
-
-	//	key, err := keystore.GetCoinbase()
-	//	if err != nil {
-	//		return nil, err
-	//	}
 	txpay, err := CreateTxPay(address, amount, config.Mining_gas, comment)
 	if err != nil {
 		fmt.Println("创建交易失败", err)
@@ -136,7 +128,9 @@ func SendToAddress(address *utils.Multihash, amount uint64, comment string) (*Tx
 		fmt.Println("交易不合法，则不发送出去")
 		return nil, errors.New("交易不合法，则不发送出去")
 	}
-	unpackedTransactions.Store(hex.EncodeToString(*txbase.GetHash()), txbase)
+	forks.GetLongChain().transactionManager.AddTx(txbase)
+
+	//	unpackedTransactions.Store(hex.EncodeToString(*txbase.GetHash()), txbase)
 	return txpay, nil
 }
 
@@ -229,10 +223,23 @@ func getValueForNeighbor(bhash *[]byte) *[]byte {
 */
 func DepositIn(amount uint64) error {
 	//缴纳备用见证人押金交易
-	err := chain.witnessChain.PayDeposit(amount)
+	err := forks.GetLongChain().balance.DepositIn(amount)
 	if err != nil {
 		fmt.Println("缴纳押金失败", err)
 	}
 	fmt.Println("缴纳押金完成")
+	return err
+}
+
+/*
+	退还押金
+*/
+func DepositOut() error {
+	//缴纳备用见证人押金交易
+	err := forks.GetLongChain().balance.DepositOut()
+	if err != nil {
+		fmt.Println("退还押金失败", err)
+	}
+	fmt.Println("退还押金完成")
 	return err
 }

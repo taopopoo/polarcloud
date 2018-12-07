@@ -1,6 +1,7 @@
 package mining
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"polarcloud/config"
@@ -9,13 +10,6 @@ import (
 	"polarcloud/wallet/keystore"
 	"sync/atomic"
 )
-
-var chain = new(Chain)
-
-func init() {
-	chain.forks = NewForks()
-	chain.witnessChain = new(WitnessChain)
-}
 
 /*
 	查找一个地址的余额
@@ -32,15 +26,25 @@ func FindLastGroupMiner() []utils.Multihash {
 }
 
 type Chain struct {
-	Init bool //是否是创世节点
+	witnessBackup      *WitnessBackup      //备用见证人
+	witnessChain       *WitnessChain       //见证人组链
+	lastBlock          *Block              //最新块
+	balance            *BalanceManager     //
+	transactionManager *TransactionManager //交易管理器
+}
 
-	//	group         *Group        //已经产出的区块链，只保留最后10个组，如果保留1年的块，内存占用超200M
-	forks         *forks        //
-	witnessChain  *WitnessChain //见证人组链
-	StartingBlock uint64        //区块开始高度
-	HighestBlock  uint64        //网络节点的最高高度
-	CurrentBlock  uint64        //已经同步到的区块高度
-	PulledStates  uint64        //正在同步的区块高度
+func NewChain(block *Block) *Chain {
+	wb := NewWitnessBackup()
+	wc := NewWitnessChain(wb)
+	tm := NewTransactionManager(wb)
+	b := NewBalanceManager(wb, tm)
+	return &Chain{
+		lastBlock:          block,
+		witnessBackup:      wb,
+		witnessChain:       wc,
+		balance:            b,
+		transactionManager: tm,
+	}
 }
 
 type Group struct {
@@ -48,134 +52,7 @@ type Group struct {
 	NextGroup *Group   //下一个组
 	Height    uint64   //组高度
 	Blocks    []*Block //组中的区块
-	//	Witness   []*Witness //这个组选出的备用见证人列表排序结果
 }
-
-/*
-	将这个组中每个块投票结果统计，统计结果加入预备见证人组中
-*/
-//func (this *Group) BuildWitness() error {
-//	//	fmt.Println("++++构建见证人组")
-
-//	//第一个组第一个块要特殊处理
-//	if this.Height == 1 {
-
-//		//构建备用见证人
-//		bh, err := this.Blocks[0].Load()
-//		if err != nil {
-//			return err
-//		}
-//		for _, one := range bh.Tx {
-//			class, err := binary.ReadUvarint(bytes.NewBuffer(one[:8]))
-//			if err != nil {
-//				return err
-//			}
-//			//			fmt.Println("--交易类型", class)
-//			if class != config.Wallet_tx_type_deposit_in {
-//				continue
-//			}
-
-//			//
-//			bs, err := db.Find(one)
-//			if err != nil {
-//				return err
-//			}
-//			txitr, err := ParseTxBase(bs)
-//			if err != nil {
-//				return err
-//			}
-//			depositIn := txitr.(*Tx_deposit_in)
-//			addr, err := keystore.ParseHashByPubkey(depositIn.Vin[0].Puk)
-//			if err != nil {
-//				return err
-//			}
-//			witness := Witness{
-//				DepositId: one,
-//				Addr:      addr,
-//			}
-//			chain.witnessChain.AddWitness(&witness)
-//		}
-//		chain.witnessChain.BuildWitnessGroupForNum(1, 2)
-
-//		return nil
-//	}
-
-//	//找出这个组出块的见证人
-//	witnes := make([]Witness, 0)
-//	//找出这个组投票出来的见证人列表
-//	miners := make([]*BackupMiners, 0) //当前组投票结果
-//	for _, one := range this.Blocks {
-//		bm, _, err := one.LoadBackminer()
-//		if err != nil {
-//			return err
-//		}
-//		//		fmt.Println("++++====投票结果", len(bm.Miners))
-//		miners = append(miners, bm)
-//		//		chain.witnessChain.SetWitnessBlock(addr, one)
-
-//		//TODO 只保留已经交了押金的投票，删除未交押金的投票
-//		bh, err := one.Load()
-//		if err != nil {
-//			return err
-//		}
-//		for _, txid := range bh.Tx {
-//			t, err := binary.ReadUvarint(bytes.NewBuffer(txid[:8]))
-//			if err != nil {
-//				return err
-//			}
-//			//			fmt.Println("这个交易类型为", t, config.Wallet_tx_type_deposit_in)
-//			if t != config.Wallet_tx_type_deposit_in {
-//				continue
-//			}
-//			//找到交押金的交易
-//			bs, err := db.Find(txid)
-//			if err != nil {
-//				return err
-//			}
-//			txitr, err := ParseTxBase(bs)
-//			if err != nil {
-//				return err
-//			}
-//			depositIn := txitr.(*Tx_deposit_in)
-//			addr, err := keystore.ParseHashByPubkey(depositIn.Vin[0].Puk)
-//			if err != nil {
-//				return err
-//			}
-//			witness := Witness{
-//				DepositId: txid,
-//				Addr:      addr,
-//			}
-//			witnes = append(witnes, witness)
-//			//			fmt.Println("添加一个见证人", witness.Addr.B58String())
-//			chain.witnessChain.AddWitness(&witness)
-//		}
-//	}
-//	//	fmt.Println("查看待统计的见证人", len(miners[0].Miners))
-//	//计算备用矿工
-//	count := countBackupGroupVote(miners)
-//	//TODO 每组见证人投票最多保留3组
-//	//TODO 当备用见证人组超过60组，则去掉多余的见证人
-
-//	//addr循环在外面，保证添加进列表的顺序
-//	//	n := uint64(0)
-//	//	for _, one := range addrs {
-//	//		for _, two := range witnes {
-//	//			if one.B58String() == two.Addr.B58String() {
-//	//				n = n + 1
-//	//				chain.witnessChain.AddWitness(&two)
-//	//				break
-//	//			}
-//	//		}
-//	//	}
-//	//	fmt.Println("++++本次构建见证人组人数", count)
-//	//TODO 有多组矿工，可以同时构建多组
-
-//	chain.witnessChain.BuildWitnessGroupForNum(count, 0)
-//	//	chain.witnessChain.BuildWitnessGroup() //确定备用见证人
-//	return nil
-//}
-
-//func (this *Group)
 
 type Block struct {
 	PreBlock  *Block   //前置区块高度
@@ -183,8 +60,6 @@ type Block struct {
 	Group     *Group   //所属组
 	Height    uint64   //区块高度
 	Id        []byte   //区块id
-	//	GroupHeight uint64 //区块组高度
-	//	DepositTx []TxItr  //押金交易，每个组里的押金交易不能重复
 
 }
 
@@ -198,7 +73,6 @@ func (this *Block) Load() (*BlockHead, error) {
 		return nil, err
 	}
 
-	//		bs := (bh).(*[]byte)
 	blockHead, err := ParseBlockHead(bh)
 	if err != nil {
 		return nil, err
@@ -206,90 +80,25 @@ func (this *Block) Load() (*BlockHead, error) {
 	return blockHead, nil
 }
 
-//func (this *Block) LoadTx() (*BlockHead, error) {
-//	bh, err := db.Find(this.Id)
-//	if err != nil {
-//		//		if err == leveldb.ErrNotFound {
-//		//			return
-//		//		} else {
-//		//		}
-//		return nil, err
-//	}
-
-//	//		bs := (bh).(*[]byte)
-//	blockHead, err := ParseBlockHead(bh)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return blockHead, nil
-//}
-
-/*
-	加载这个块上的见证人投票结果
-*/
-//func (this *Block) LoadBackminer() (*BackupMiners, *utils.Multihash, error) {
-//	blockHead, err := this.Load()
-//	if err != nil {
-//		return nil, nil, err
-//	}
-
-//	minerBS, err := db.Find(blockHead.BackupMiner)
-//	if err != nil {
-//		return nil, nil, err
-//	}
-//	//	fmt.Println("==========\n", string(*minerBS))
-//	bm, err := ParseBackupMiners(minerBS)
-//	if err != nil {
-//		return nil, nil, err
-//	}
-//	return bm, &blockHead.Witness, nil
-//}
-
-/*
-	获得链上最后一个区块
-	选择最长链的最后一个块
-*/
-func (this *Block) GetLastBlocks() *Block {
-	return nil
-	//	block := this
-	//	for {
-	//		if block.NextBlock == nil {
-	//			return block
-	//		}
-	//		block = block.NextBlock
-	//	}
-}
-
-/*
-	同步下一个区块
-*/
-//func (this *Block) SyncNextBlock() *Block {
-//}
-
-/*
-	设置见证人
-*/
-//func (this *Group) SetWitness(addrs []*utils.Multihash) {
-
-//	this.Miners = addrs
-//}
-
-/*
-	获得这个组中的最后一个区块
-*/
-//func (this *Group) GetLastBlock() *Block {
-
-//}
-
 /*
 	添加一个区块
 	只能连续添加区块高度更高的区块
 */
-func (this *Chain) AddBlock(bh *BlockHead, txs *[]TxItr) bool {
+func AddBlock(bh *BlockHead, txs *[]TxItr) bool {
+
+	chain := forks.AddBlock(bh)
+	if chain == nil {
+		//		fmt.Println("111111111111添加一个区块不连续")
+		//1.区块不连续.
+		//2.产生了分叉.
+		//3.本节点内存不同步.
+		return false
+	}
 	fmt.Println("添加一个区块", bh.Height, hex.EncodeToString(bh.Hash))
 
 	//计算余额
-	CountBalanceForBlock(&BlockHeadVO{BH: bh, Txs: *txs})
+	bhvo := &BlockHeadVO{BH: bh, Txs: *txs}
+	chain.balance.CountBalanceForBlock(bhvo)
 
 	//	depositTxs := make([]TxItr, 0)
 	for _, one := range *txs {
@@ -302,65 +111,47 @@ func (this *Chain) AddBlock(bh *BlockHead, txs *[]TxItr) bool {
 				continue
 			}
 			score := (*one.GetVout())[0].Value
-			addWitness(addr, score)
+			chain.witnessBackup.addWitness(addr, score)
+		case config.Wallet_tx_type_deposit_out:
+			addr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
+			if err != nil {
+				continue
+			}
+			chain.witnessBackup.DelWitness(addr)
+			//如果是自己，则删除
+			if chain.balance.depositin == nil {
+				continue
+			}
+			if !bytes.Equal(*addr, *chain.balance.depositin.Addr) {
+				continue
+			}
+			chain.balance.depositin = nil
 		}
 	}
-	//	newBlock.DepositTx = depositTxs
 
-	newBlock := this.forks.AddBlock(bh)
-	if newBlock == nil {
-		//区块不连续
-		return false
+	chain.witnessChain.SetWitnessBlock(chain.GetLastBlock())
+
+	//删除已经打包了的交易
+	chain.transactionManager.DelTx(bhvo.Txs)
+
+	//跟新同步高度
+	//	if GetCurrentBlock()+1 == bhvo.BH.Height {
+	//		atomic.StoreUint64(&forks.CurrentBlock, bhvo.BH.Height)
+	//	}
+	if bhvo.BH.Height > GetCurrentBlock() {
+		atomic.StoreUint64(&forks.CurrentBlock, bhvo.BH.Height)
 	}
-
-	this.witnessChain.SetWitnessBlock(newBlock)
 
 	go Mining()
 	return true
 }
 
 /*
-	获得首个区块
-*/
-//func (this *Chain) GetFirstBlock() *Block {
-//	if this.group == nil {
-//		return nil
-//	}
-//	group := this.group
-//	for group.PreGroup != nil {
-//		group = group.PreGroup
-//	}
-//	return group.Blocks[0]
-//}
-
-/*
-	获得最后一个区块
+	获取本链最高的区块
 */
 func (this *Chain) GetLastBlock() *Block {
-	return this.forks.HeightBlock
+	return this.lastBlock
 }
-
-/*
-	检查投票
-*/
-//func (this *Chain) CheckVote(key *keystore.Address) {
-//	//	this.witnessChain.PrintWitnessList()
-//	next := this.witnessChain.GetBackupWitness()
-//	for {
-//		if next == nil {
-//			break
-//		}
-//		//		fmt.Println("对比备用见证人投票地址", hex.EncodeToString(next.DepositId), next.Addr.B58String())
-//		if next.Addr.B58String() == key.Hash.B58String() {
-//			MulticastBallotTicket(&next.DepositId, next.Addr)
-//		}
-//		if next.NextWitness == nil {
-//			break
-//		}
-//		next = next.NextWitness
-//	}
-//	//	this.witnessChain.PrintWitnessList()
-//}
 
 /*
 	打印块列表
@@ -387,12 +178,12 @@ func (this *Chain) PrintBlockList() {
 	获取区块开始高度
 */
 func SetStartingBlock(n uint64) {
-	atomic.StoreUint64(&chain.StartingBlock, n)
+	atomic.StoreUint64(&forks.StartingBlock, n)
 }
 
 /*
 	获取所链接的节点的最高高度
 */
 func SetHighestBlock(n uint64) {
-	atomic.StoreUint64(&chain.HighestBlock, n)
+	atomic.StoreUint64(&forks.HighestBlock, n)
 }

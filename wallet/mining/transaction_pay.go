@@ -71,10 +71,7 @@ func (this *Tx_Pay) Check() bool {
 	创建一个转款交易
 */
 func CreateTxPay(address *utils.Multihash, amount, gas uint64, comment string) (*Tx_Pay, error) {
-	//判断支付的金额小于矿工费
-	//	if amount <= gas {
-	//		return nil
-	//	}
+	chain := forks.GetLongChain()
 
 	//优先从非矿工账户扣款
 	coinBaseKey, err := keystore.GetCoinbase()
@@ -89,7 +86,7 @@ func CreateTxPay(address *utils.Multihash, amount, gas uint64, comment string) (
 		if one.Hash.B58String() == coinBaseKey.Hash.B58String() {
 			continue
 		}
-		bas, err := FindBalance(one.Hash)
+		bas, err := chain.balance.FindBalance(one.Hash)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +144,7 @@ func CreateTxPay(address *utils.Multihash, amount, gas uint64, comment string) (
 	}
 	//若资金还不够，则花费矿工账户的资金
 	if total < amount+gas {
-		bas, err := FindBalance(coinBaseKey.Hash)
+		bas, err := chain.balance.FindBalance(coinBaseKey.Hash)
 		if err != nil {
 			return nil, err
 		}
