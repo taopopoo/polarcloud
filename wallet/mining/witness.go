@@ -237,3 +237,15 @@ func (this *WitnessGroup) CountReward() *Tx_reward {
 	txReward.BuildHash()
 	return &txReward
 }
+
+/*
+	判断是否是本组首个见证人出块
+*/
+func (this *WitnessGroup) FirstWitness() bool {
+	for _, one := range this.Witness {
+		if one.Block != nil {
+			return false
+		}
+	}
+	return true
+}

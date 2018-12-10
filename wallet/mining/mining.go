@@ -10,7 +10,6 @@ import (
 	"polarcloud/core/nodeStore"
 	"polarcloud/core/utils"
 	"polarcloud/wallet/keystore"
-	"strconv"
 	"time"
 )
 
@@ -102,8 +101,11 @@ func BuildBlock() {
 	chain := forks.GetLongChain()
 	lastBlock := chain.GetLastBlock()
 
+	blockHeight := lastBlock.Height + 1
+	groupHieght := this.Group.Height
+
 	if this.PreWitness != nil && this.PreWitness.Block != nil {
-		fmt.Println("===准备出块" + strconv.Itoa(int(lastBlock.Height+1)) + "===")
+		fmt.Println("===准备出块=== 块高度", blockHeight, "组高度", groupHieght)
 	}
 
 	//打包交易
@@ -111,7 +113,8 @@ func BuildBlock() {
 	txids := make([][]byte, 0)
 	//判断是否是该组第一个块
 	//判断上一个组是否是见证人方式出块，是见证人方式出块，计算上一组出块奖励。
-	if chain.witnessChain.beforeGroup != nil {
+	if chain.witnessChain.beforeGroup != nil &&
+		chain.witnessChain.group.FirstWitness() {
 		reward := chain.witnessChain.beforeGroup.CountReward()
 		tx = append(tx, reward)
 		txids = append(txids, reward.Hash)
@@ -131,18 +134,17 @@ func BuildBlock() {
 
 	//开始生成块
 	bh := BlockHead{
-		Height:            lastBlock.Height + 1,    //区块高度(每秒产生一个块高度，uint64容量也足够使用上千亿年)
-		GroupHeight:       this.Group.Height,       //矿工组高度
+		Height:            blockHeight,             //区块高度(每秒产生一个块高度，uint64容量也足够使用上千亿年)
+		GroupHeight:       groupHieght,             //矿工组高度
 		Previousblockhash: chain.GetLastBlock().Id, //上一个区块头hash
 		NTx:               uint64(len(tx)),         //交易数量
 		Tx:                txids,                   //本区块包含的交易id
 		Time:              time.Now().Unix(),       //unix时间戳
-		//		BackupMiner:       bmId,                            //备用矿工选举结果hash
-		//		DepositId: this.DepositId, //预备矿工组高度
-		Witness: *coinbase.Hash, //此块矿工地址
+		Witness:           *coinbase.Hash,          //此块矿工地址
 	}
 	bh.BuildMerkleRoot()
 	bh.BuildHash()
+	bh.BuildSign(coinbase)
 
 	bhvo := CreateBlockHeadVO(&bh, tx)
 
@@ -192,6 +194,13 @@ func BuildBlockForPOW() {
 	txids = append(txids, reward.Hash)
 
 	chain := forks.GetLongChain()
+
+	//判断上一个组是否是见证人方式出块，是见证人方式出块，计算上一组出块奖励。
+	if chain.witnessChain.beforeGroup != nil {
+		reward := chain.witnessChain.beforeGroup.CountReward()
+		txs = append(txs, reward)
+		txids = append(txids, reward.Hash)
+	}
 
 	//打包10秒内的所有交易
 	txss, ids := chain.transactionManager.Package()

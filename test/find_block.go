@@ -15,7 +15,7 @@ func main() {
 
 func find(dir string) {
 	nums := []uint64{}
-	for i := uint64(1); i < 30; i++ {
+	for i := uint64(1); i < 100; i++ {
 		nums = append(nums, i)
 	}
 

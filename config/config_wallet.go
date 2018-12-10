@@ -45,7 +45,7 @@ const (
 	Mining_deposit     = 1 * 1e8          //押金最少金额
 	Mining_reward      = 1 * 1e8          //出块奖励
 	Mining_gas         = 1                //交易矿工费
-	Mining_difficulty  = 18               //出块难度，前导零个数
+	Mining_difficulty  = 20               //出块难度，前导零个数
 	Witness_backup_min = Mining_group_min //备用见证人数需要满足见证人组最少数量
 	Witness_backup_max = 100              //备用见证人排名靠前的最多数量，之后的人依然是选举中的备用见证人。
 )

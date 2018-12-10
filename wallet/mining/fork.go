@@ -52,6 +52,7 @@ func (this *Forks) AddBlock(bh *BlockHead) *Chain {
 	newBlock := new(Block)
 	newBlock.Id = bh.Hash
 	newBlock.Height = bh.Height
+	//	newBlock.PreBlock = make([]*Block, 0)
 	newBlock.NextBlock = make([]*Block, 0)
 
 	//系统中还没有链，创建首个链

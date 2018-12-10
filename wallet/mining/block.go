@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"polarcloud/core/utils"
+	"polarcloud/wallet/keystore"
 )
 
 const (
@@ -14,24 +15,25 @@ const (
 	BlockHead_MerkleRoot        = "MerkleRoot"
 	BlockHead_Previousblockhash = "Previousblockhash"
 	BlockHead_Nextblockhash     = "Nextblockhash"
+	BlockHead_Sign              = "sign"
 	BlockHead_Tx                = "Tx"
 	BlockHead_Time              = "Time"
 )
 
-var (
+//var (
 
-	//	headBlock     = new(sync.Map)              //保存对应区块高度的区块头hash。key:uint64=区块高度;value:*[]byte=区块高度对应区块头hash;
-	lastBlockHead *BlockHead                   //最高区块
-	preBlockHead  *BlockHead                   //最高区块的上一个区块
-	syncBlock     = make(chan *BlockHeadVO, 1) //连续导入区块
-)
+//	//	headBlock     = new(sync.Map)              //保存对应区块高度的区块头hash。key:uint64=区块高度;value:*[]byte=区块高度对应区块头hash;
+//	lastBlockHead *BlockHead                   //最高区块
+//	preBlockHead  *BlockHead                   //最高区块的上一个区块
+//	syncBlock     = make(chan *BlockHeadVO, 1) //连续导入区块
+//)
 
-/*
-	从数据库加载区块
-*/
-func LoadBlockInDB() {
+///*
+//	从数据库加载区块
+//*/
+//func LoadBlockInDB() {
 
-}
+//}
 
 /*
 	区块头
@@ -108,11 +110,34 @@ func (this *BlockHead) BuildHash() {
 	}
 	delete(m, BlockHead_Hash)
 	delete(m, BlockHead_Nextblockhash)
+	delete(m, BlockHead_Sign)
 	bs, err := json.Marshal(m)
 	if err != nil {
 		return
 	}
 	this.Hash = utils.Hash_SHA3_256(bs)
+}
+
+/*
+	区块签名
+*/
+func (this *BlockHead) BuildSign(key *keystore.Address) {
+	m, err := utils.ChangeMap(this)
+	if err != nil {
+		return
+	}
+	delete(m, BlockHead_Hash)
+	delete(m, BlockHead_Nextblockhash)
+	delete(m, BlockHead_Sign)
+	bs, err := json.Marshal(m)
+	if err != nil {
+		return
+	}
+	signBs, err := key.Sign(bs, "123456")
+	if err != nil {
+		return
+	}
+	this.Sign = *signBs
 }
 
 /*
