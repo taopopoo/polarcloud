@@ -107,7 +107,7 @@ func saveBlockHead(bhvo *BlockHeadVO) {
 	//		fmt.Println("222222222222222")
 
 	//修改前一个区块的next
-	bs, err := db.Find(bhvo.BH.Previousblockhash)
+	bs, err := db.Find(bhvo.BH.Previousblockhash[0])
 	if err == nil {
 		bh, err := ParseBlockHead(bs)
 		if err != nil {
@@ -397,7 +397,7 @@ func syncBlockForDBAndNeighbor(bhash *[]byte) (*BlockHead, error) {
 
 	//先将前一个区块修改next
 	if GetStartingBlock() > 0 {
-		bs, err := db.Find(bhvo.BH.Previousblockhash)
+		bs, err := db.Find(bhvo.BH.Previousblockhash[0])
 		if err != nil {
 			//TODO 区块未同步完整可以查找不到之前的区块
 			return nil, err

@@ -18,7 +18,7 @@ func stopFindNonce(bh *BlockHead) {
 	//	fmt.Println("调用中断方法")
 	powBlockHeadLock.Lock()
 	if powBlockHead != nil &&
-		bytes.Equal(powBlockHead.Previousblockhash, bh.Previousblockhash) {
+		bytes.Equal(powBlockHead.Previousblockhash[0], bh.Previousblockhash[0]) {
 		fmt.Println("其他矿工率先出块，中断挖矿，下次继续努力！")
 		stopSignalChan <- true
 	}

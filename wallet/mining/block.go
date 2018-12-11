@@ -42,7 +42,7 @@ type BlockHead struct {
 	Hash              []byte          `json:"Hash"`              //区块头hash
 	Height            uint64          `json:"Height"`            //区块高度(每秒产生一个块高度，uint64容量也足够使用上千亿年)
 	GroupHeight       uint64          `json:"GroupHeight"`       //矿工组高度
-	Previousblockhash []byte          `json:"Previousblockhash"` //上一个区块头hash
+	Previousblockhash [][]byte        `json:"Previousblockhash"` //上一个区块头hash
 	Nextblockhash     [][]byte        `json:"Nextblockhash"`     //下一个区块头hash,可能有多个分叉，但是要保证排在第一的链是最长链
 	NTx               uint64          `json:"NTx"`               //交易数量
 	MerkleRoot        []byte          `json:"MerkleRoot"`        //交易默克尔树根hash

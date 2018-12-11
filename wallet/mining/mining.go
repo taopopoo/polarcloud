@@ -134,13 +134,13 @@ func BuildBlock() {
 
 	//开始生成块
 	bh := BlockHead{
-		Height:            blockHeight,             //区块高度(每秒产生一个块高度，uint64容量也足够使用上千亿年)
-		GroupHeight:       groupHieght,             //矿工组高度
-		Previousblockhash: chain.GetLastBlock().Id, //上一个区块头hash
-		NTx:               uint64(len(tx)),         //交易数量
-		Tx:                txids,                   //本区块包含的交易id
-		Time:              time.Now().Unix(),       //unix时间戳
-		Witness:           *coinbase.Hash,          //此块矿工地址
+		Height:            blockHeight,                       //区块高度(每秒产生一个块高度，uint64容量也足够使用上千亿年)
+		GroupHeight:       groupHieght,                       //矿工组高度
+		Previousblockhash: [][]byte{chain.GetLastBlock().Id}, //上一个区块头hash
+		NTx:               uint64(len(tx)),                   //交易数量
+		Tx:                txids,                             //本区块包含的交易id
+		Time:              time.Now().Unix(),                 //unix时间戳
+		Witness:           *coinbase.Hash,                    //此块矿工地址
 	}
 	bh.BuildMerkleRoot()
 	bh.BuildHash()
@@ -220,7 +220,7 @@ func BuildBlockForPOW() {
 	bh := BlockHead{
 		Height:            lastBlock.Height + 1,       //区块高度(每秒产生一个块高度，uint64容量也足够使用上千亿年)
 		GroupHeight:       lastBlock.Group.Height + 1, //矿工组高度
-		Previousblockhash: lastBlock.Id,               //上一个区块头hash
+		Previousblockhash: [][]byte{lastBlock.Id},     //上一个区块头hash
 		NTx:               uint64(len(txs)),           //交易数量
 		Tx:                txids,                      //本区块包含的交易id
 		Time:              time.Now().Unix(),          //unix时间戳

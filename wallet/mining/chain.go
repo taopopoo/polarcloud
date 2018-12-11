@@ -55,7 +55,7 @@ type Group struct {
 }
 
 type Block struct {
-	PreBlock  *Block   //前置区块高度
+	PreBlock  []*Block //前置区块高度
 	NextBlock []*Block //下一个区块高度
 	Group     *Group   //所属组
 	Height    uint64   //区块高度

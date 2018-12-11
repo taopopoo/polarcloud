@@ -52,7 +52,7 @@ func (this *Forks) AddBlock(bh *BlockHead) *Chain {
 	newBlock := new(Block)
 	newBlock.Id = bh.Hash
 	newBlock.Height = bh.Height
-	//	newBlock.PreBlock = make([]*Block, 0)
+	newBlock.PreBlock = make([]*Block, 0)
 	newBlock.NextBlock = make([]*Block, 0)
 
 	//系统中还没有链，创建首个链
@@ -72,7 +72,8 @@ func (this *Forks) AddBlock(bh *BlockHead) *Chain {
 	}
 
 	//获取本块所在的链
-	beforeBlockHash := hex.EncodeToString(bh.Previousblockhash)
+	beforeBlockHash := hex.EncodeToString(bh.Previousblockhash[0])
+
 	chainItr, ok := this.chains.Load(beforeBlockHash)
 	if !ok {
 		//TODO 产生了新的分叉，考虑加载这个分叉之前的所有块
@@ -82,7 +83,7 @@ func (this *Forks) AddBlock(bh *BlockHead) *Chain {
 	chain := chainItr.(*Chain)
 	beforeBlock := chain.GetLastBlock()
 
-	newBlock.PreBlock = beforeBlock
+	newBlock.PreBlock = append(newBlock.PreBlock, beforeBlock)
 	beforeBlock.NextBlock = append(beforeBlock.NextBlock, newBlock)
 
 	//新的区块组
