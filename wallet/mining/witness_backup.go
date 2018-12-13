@@ -13,6 +13,7 @@ import (
 //var witnesses = make(WitnessBackup, 0)
 
 type WitnessBackup struct {
+	chain     *Chain //
 	lock      *sync.RWMutex
 	witnesses []BackupWitness
 }
@@ -47,7 +48,7 @@ func (this *WitnessBackup) addWitness(witnessAddr *utils.Multihash, score uint64
 */
 func (this *WitnessBackup) DelWitness(witnessAddr *utils.Multihash) {
 	this.lock.Lock()
-	fmt.Println("++++++删除备用见证人前", len(this.witnesses), witnessAddr.B58String())
+	//	fmt.Println("++++++删除备用见证人前", len(this.witnesses), witnessAddr.B58String())
 	for i, one := range this.witnesses {
 		if !bytes.Equal(*witnessAddr, *one.Addr) {
 			continue
@@ -56,7 +57,7 @@ func (this *WitnessBackup) DelWitness(witnessAddr *utils.Multihash) {
 		this.witnesses = append(temp, this.witnesses[i+1:]...)
 		break
 	}
-	fmt.Println("++++++删除备用见证人后", len(this.witnesses))
+	//	fmt.Println("++++++删除备用见证人后", len(this.witnesses))
 	this.lock.Unlock()
 }
 
@@ -115,7 +116,18 @@ func (this *WitnessBackup) CreateWitnessGroup() *Witness {
 		}
 
 	}
-	return startWitness
+	random := this.chain.HashRandom()
+	fmt.Println("前n个块hash", random)
+	start := OrderWitness(startWitness, random)
+	last := start
+	for {
+		if last == nil {
+			break
+		}
+		fmt.Println("备用见证人排序", last.Addr)
+		last = last.NextWitness
+	}
+	return start
 }
 
 /*
@@ -140,8 +152,9 @@ func (this *WitnessBackup) PrintWitnessBackup() {
 /*
 	创建备用见证人列表
 */
-func NewWitnessBackup() *WitnessBackup {
+func NewWitnessBackup(chain *Chain) *WitnessBackup {
 	wb := WitnessBackup{
+		chain:     chain, //
 		lock:      new(sync.RWMutex),
 		witnesses: make([]BackupWitness, 0),
 	}

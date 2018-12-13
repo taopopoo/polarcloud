@@ -30,7 +30,7 @@ func BuildFirstBlock() {
 	db.InitDB("wallet/data")
 
 	//----------------生成第一个区块-----------------
-	balanceTotal := uint64(3 * mining.Unit)
+	balanceTotal := uint64(config.Mining_reward)
 	//构建交易
 	txHashes := make([][]byte, 0)
 	txs := make([]*mining.Tx_reward, 0)

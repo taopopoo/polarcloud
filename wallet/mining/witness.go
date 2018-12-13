@@ -146,29 +146,6 @@ func (this *WitnessChain) PrintWitnessList() {
 	//打印未分组的见证人列表
 	this.witnessBackup.PrintWitnessBackup()
 
-	//	start := this.firstWitnessNotGroup
-	//	for {
-	//		if start.PreWitness == nil {
-	//			break
-	//		}
-	//		start = start.PreWitness
-	//	}
-	//	for {
-	//		groupHeight := uint64(0)
-	//		if start.Group != nil {
-	//			groupHeight = start.Group.Height
-	//		}
-
-	//		if start.Block == nil {
-	//			fmt.Println("打印见证人列表", hex.EncodeToString(start.DepositId), start.Addr.B58String(), "组高度", groupHeight)
-	//		} else {
-	//			fmt.Println("打印见证人列表", hex.EncodeToString(start.DepositId), start.Addr.B58String(), "组高度", groupHeight, "块高度", start.Block.Height)
-	//		}
-	//		if start.NextWitness == nil {
-	//			break
-	//		}
-	//		start = start.NextWitness
-	//	}
 }
 
 /*
@@ -210,9 +187,11 @@ func (this *WitnessChain) SetWitnessBlock(block *Block) (bool, bool) {
 	构建本组中的见证人出块奖励
 	按股权分配
 	只有见证人方式出块才统计
+	组人数乘以每块奖励，再分配给实际出块的人
 */
 func (this *WitnessGroup) CountReward() *Tx_reward {
 	//统计本组的出块奖励
+	allReward := uint64(0)
 	vouts := make([]Vout, 0)
 	for _, one := range this.Witness {
 		if one.Block == nil {
@@ -223,7 +202,24 @@ func (this *WitnessGroup) CountReward() *Tx_reward {
 			Address: *one.Addr,
 		}
 		vouts = append(vouts, vout)
+
+		oneReward := uint64(config.Mining_reward)
+		n := one.Block.Height / config.Mining_block_cycle
+		for i := uint64(0); i < n; i++ {
+			oneReward = oneReward / 2
+		}
+		allReward = allReward + oneReward
 	}
+
+	//平均分给每一个出块的人，保留整数，去掉小数点
+	oneReward := allReward / uint64(len(vouts))
+	for i, _ := range vouts {
+		vouts[i].Value = uint64(oneReward)
+	}
+	//平均数不能被整除时候，剩下的给最后一个出块的见证人
+	lastReward := uint64(allReward - (oneReward * uint64(len(vouts)-1)))
+	vouts[len(vouts)-1].Value = lastReward
+
 	base := TxBase{
 		Type:       config.Wallet_tx_type_mining, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
 		Vout_total: uint64(len(vouts)),           //输出交易数量

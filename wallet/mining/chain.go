@@ -34,17 +34,18 @@ type Chain struct {
 }
 
 func NewChain(block *Block) *Chain {
-	wb := NewWitnessBackup()
+	chain := &Chain{}
+	wb := NewWitnessBackup(chain)
 	wc := NewWitnessChain(wb)
 	tm := NewTransactionManager(wb)
 	b := NewBalanceManager(wb, tm)
-	return &Chain{
-		lastBlock:          block,
-		witnessBackup:      wb,
-		witnessChain:       wc,
-		balance:            b,
-		transactionManager: tm,
-	}
+
+	chain.lastBlock = block
+	chain.witnessBackup = wb
+	chain.witnessChain = wc
+	chain.balance = b
+	chain.transactionManager = tm
+	return chain
 }
 
 type Group struct {
@@ -172,6 +173,26 @@ func (this *Chain) PrintBlockList() {
 	//		}
 	//		start = start.NextBlock
 	//	}
+}
+
+/*
+	依次获取前n个区块的hash，连接起来做一次hash
+*/
+func (this *Chain) HashRandom() *[]byte {
+	bs := make([]byte, 0)
+	lastBlock := this.lastBlock
+	for i := 0; i < config.Mining_block_hash_count; i++ {
+		if lastBlock == nil {
+			break
+		}
+		bs = append(bs, lastBlock.Id...)
+		if lastBlock.PreBlock == nil || len(lastBlock.PreBlock) <= 0 {
+			break
+		}
+		lastBlock = lastBlock.PreBlock[0]
+	}
+	bs = utils.Hash_SHA3_256(bs)
+	return &bs
 }
 
 /*
