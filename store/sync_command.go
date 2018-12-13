@@ -135,17 +135,17 @@ func sendData(id *utils.Multihash, data *SyncData) error {
 	message := mc.NewMessage(mhead, mbody)
 	if message.Send(MSGID_syncFileInfo) {
 		//fmt.Println("数据发送成功", id.B58String())
-		bs := mc.WaitRequest(mc.CLASS_syncfileinfo, message.Body.Hash.B58String())
-		if bs == nil {
-			//删除离线的块共享者
-			if data.Type == FileChunkType {
-				cid, err := ParseChunkInfoData(data.Data)
-				if err == nil {
-					FD.DelShareUser(id, cid.CHash)
-				}
-			}
-			return errors.New("同步数据消息失败，可能超时")
-		}
+		//		bs := mc.WaitRequest(mc.CLASS_syncfileinfo, message.Body.Hash.B58String())
+		//		if bs == nil {
+		//			//删除离线的块共享者
+		//			if data.Type == FileChunkType {
+		//				cid, err := ParseChunkInfoData(data.Data)
+		//				if err == nil {
+		//					FD.DelShareUser(id, cid.CHash)
+		//				}
+		//			}
+		//			return errors.New("同步数据消息失败，可能超时")
+		//		}
 		//fmt.Println("有消息返回", string(*bs))
 		return nil
 	}

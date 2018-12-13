@@ -3,7 +3,7 @@ package store
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	gconfig "polarcloud/config"
 	"polarcloud/core/engine"
@@ -154,6 +154,7 @@ func FindFileinfoHandler(c engine.Controller, msg engine.Packet) {
 	} else {
 		fmt.Println("没有找到文件索引")
 	}
+	fmt.Println("发回：", message.Head.Sender.B58String(), message.Head.SenderSuperId.B58String())
 	mhead := mc.NewMessageHead(message.Head.Sender, message.Head.SenderSuperId, false)
 	mbody := mc.NewMessageBody(&bs, message.Body.CreateTime, message.Body.Hash, message.Body.SendRand)
 	message = mc.NewMessage(mhead, mbody)
@@ -273,9 +274,23 @@ func DownloadFilechunk(c engine.Controller, msg engine.Packet) {
 		}
 
 	}
-	bs, err := ioutil.ReadFile(filepath.Join(gconfig.Store_dir, filechunk.ChunkHash.B58String()))
+	//bs, err := ioutil.ReadFile(filepath.Join(gconfig.Store_dir, filechunk.ChunkHash.B58String()))
+	f, err := os.Open(filepath.Join(gconfig.Store_dir, filechunk.ChunkHash.B58String()))
+	defer f.Close()
+	if err != nil {
+		fmt.Println(err)
+		resultErrorMsgFun()
+		return
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		fmt.Println(err)
+		resultErrorMsgFun()
+		return
+	}
 	//start
-	datalength := uint64(len(bs))
+	//datalength := uint64(len(bs))
+	datalength := uint64(fi.Size())
 	if filechunk.Index > datalength {
 		resultErrorMsgFun()
 		return
@@ -286,12 +301,27 @@ func DownloadFilechunk(c engine.Controller, msg engine.Packet) {
 	} else {
 		length = filechunk.Length
 	}
-	bs = bs[filechunk.Index:length]
+	var index uint64
+	if filechunk.Index > length {
+		index = length
+	} else {
+		index = filechunk.Index
+	}
+	//bs = bs[filechunk.Index:length]
+	bslength := length - index
+	if bslength == 0 {
+		fmt.Println("complete down")
+		resultErrorMsgFun()
+		return
+	}
+	bs := make([]byte, bslength)
+	_, err = f.ReadAt(bs, int64(index))
 	if err != nil {
 		fmt.Println(err)
 		resultErrorMsgFun()
 		return
 	}
+	f.Close()
 	filechunk.Content = bs
 	filechunk.ContentLength = datalength
 	fmt.Println("**********收到块下载信息********")

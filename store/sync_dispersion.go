@@ -11,7 +11,7 @@ import (
 const (
 	FirstTimeInterval    = 30                     //第一次文件块同步检测，单位秒
 	TimeInterval         = 10*Time_sharefile - 30 //文件块同步间隔，单位秒
-	TimeIntervalEveryone = 1000                   //每块同步间隔，单位毫秒
+	TimeIntervalEveryone = 500                    //每块同步间隔，单位毫秒
 )
 
 var (
@@ -154,6 +154,7 @@ func (fd *FileData) UpdateChunkFirst(cid *ChunkInfoData) {
 //加入块索引
 func (fd *FileData) AddFileChunk(cid *ChunkInfoData) {
 	fd.Lock.Lock()
+	defer fd.Lock.Unlock()
 	cids, ok := fd.FileChunkInfo.Load(cid.CHash.B58String())
 	if !ok {
 		fd.FileChunkInfo.Store(cid.CHash.B58String(), cid)
@@ -168,7 +169,6 @@ func (fd *FileData) AddFileChunk(cid *ChunkInfoData) {
 		chunkinfodata.Time = time.Now()
 		fd.FileChunkInfo.Store(chunkinfodata.CHash.B58String(), chunkinfodata)
 	}
-	fd.Lock.Unlock()
 }
 
 //修改块信息
