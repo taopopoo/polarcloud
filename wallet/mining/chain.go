@@ -1,7 +1,6 @@
 package mining
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"polarcloud/config"
@@ -119,14 +118,55 @@ func AddBlock(bh *BlockHead, txs *[]TxItr) bool {
 				continue
 			}
 			chain.witnessBackup.DelWitness(addr)
-			//如果是自己，则删除
-			if chain.balance.depositin == nil {
+			//			//如果是自己，则删除
+			//			if chain.balance.depositin == nil {
+			//				continue
+			//			}
+			//			if !bytes.Equal(*addr, *chain.balance.depositin.Addr) {
+			//				continue
+			//			}
+			//			chain.balance.depositin = nil
+		case config.Wallet_tx_type_vote_in:
+			//			depositTxs = append(depositTxs, one)
+			voteAddr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
+			if err != nil {
 				continue
 			}
-			if !bytes.Equal(*addr, *chain.balance.depositin.Addr) {
-				continue
+			score := (*one.GetVout())[0].Value
+			votein := one.(*Tx_vote_in)
+
+			chain.witnessBackup.addVote(&votein.Vote.Address, voteAddr, score)
+		case config.Wallet_tx_type_vote_out:
+
+			for _, oneVin := range *one.GetVin() {
+
+				bs, err := db.Find(oneVin.Txid)
+				if err != nil {
+					//TODO 不能找到上一个交易，程序出错退出
+					continue
+				}
+				txItr, err := ParseTxBase(bs)
+				if err != nil {
+					//TODO 不能解析上一个交易，程序出错退出
+					continue
+				}
+				votein := txItr.(*Tx_vote_in)
+				score := votein.Vout[oneVin.Vout].Value
+				voteAddr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
+				if err != nil {
+					continue
+				}
+				chain.witnessBackup.DelVote(&votein.Vote.Address, voteAddr, score)
 			}
-			chain.balance.depositin = nil
+
+			//			//如果是自己，则删除
+			//			if chain.balance.depositin == nil {
+			//				continue
+			//			}
+			//			if !bytes.Equal(*addr, *chain.balance.depositin.Addr) {
+			//				continue
+			//			}
+			//			chain.balance.depositin = nil
 		}
 	}
 

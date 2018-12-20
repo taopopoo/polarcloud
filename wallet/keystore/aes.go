@@ -10,6 +10,7 @@ import (
 
 const checkSum = 4
 
+//加密（主要用于私钥存储时加密）
 func Encrypt(plantText, key []byte) ([]byte, error) {
 	key = KeyPadding(key)
 	block, err := aes.NewCipher(key)
@@ -25,6 +26,8 @@ func Encrypt(plantText, key []byte) ([]byte, error) {
 	//return append(vcode, ciphertext...), nil
 	return ciphertext, nil
 }
+
+//解密
 func Decrypt(ciphertext, key []byte) ([]byte, error) {
 	key = KeyPadding(key)
 	block, err := aes.NewCipher(key)

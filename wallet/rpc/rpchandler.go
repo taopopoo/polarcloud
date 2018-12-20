@@ -19,6 +19,8 @@ var rpcHandler = map[string]serverHandler{
 	"sendtoaddress":   sendToAddress,         //
 	"depositin":       depositIn,             //缴纳押金，成为见证人
 	"depositout":      depositOut,            //退还押金
+	"votein":          voteIn,                //见证人投票押金
+	"voteout":         voteOut,               //退还见证人投票押金
 }
 
 //获取基本信息
@@ -226,6 +228,80 @@ func depositOut(rj *rpcJson) (res []byte, err error) {
 	err = mining.DepositOut()
 	if err == nil {
 		//		res = []byte("success")
+		res, err = tojson("success")
+	}
+	return
+}
+
+//缴纳押金，成为见证人
+//{
+//    "jsonrpc": "2.0",
+//    "code": 2000,
+//    "result": {
+//        "12FRzz2xrVtEm9cwzgFArrLE7VA7ks": 0,
+//        "12GJJknncS2MmbXh26ZHAMbd3CjCHy": 0,
+//        "12Hixu5fzDrVoQt1fDL5vHw2Aahw1q": 0
+//    }
+//}
+func voteIn(rj *rpcJson) (res []byte, err error) {
+	amountItr, ok := rj.Get("amount")
+	if !ok {
+		res, err = errcode(5002, "amount")
+		return
+	}
+	amount := uint64(amountItr.(float64))
+
+	witnessAddrItr, ok := rj.Get("witness")
+	if !ok {
+		res, err = errcode(5002, "witness")
+		return
+	}
+	witnessStr := witnessAddrItr.(string)
+	witnessAddr, err := utils.FromB58String(witnessStr)
+	if err != nil {
+		res, err = errcode(5002, "witness")
+		return
+	}
+
+	err = mining.VoteIn(&witnessAddr, amount)
+	if err == nil {
+		res, err = tojson("success")
+	}
+	return
+}
+
+//退还押金
+//{
+//    "jsonrpc": "2.0",
+//    "code": 2000,
+//    "result": {
+//        "12FRzz2xrVtEm9cwzgFArrLE7VA7ks": 0,
+//        "12GJJknncS2MmbXh26ZHAMbd3CjCHy": 0,
+//        "12Hixu5fzDrVoQt1fDL5vHw2Aahw1q": 0
+//    }
+//}
+func voteOut(rj *rpcJson) (res []byte, err error) {
+	amountItr, ok := rj.Get("amount")
+	if !ok {
+		res, err = errcode(5002, "amount")
+		return
+	}
+	amount := uint64(amountItr.(float64))
+
+	witnessAddrItr, ok := rj.Get("witness")
+	if !ok {
+		res, err = errcode(5002, "witness")
+		return
+	}
+	witnessStr := witnessAddrItr.(string)
+	witnessAddr, err := utils.FromB58String(witnessStr)
+	if err != nil {
+		res, err = errcode(5002, "witness")
+		return
+	}
+
+	err = mining.VoteOut(&witnessAddr, amount)
+	if err == nil {
 		res, err = tojson("success")
 	}
 	return

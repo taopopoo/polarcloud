@@ -80,11 +80,15 @@ func saveBlockHead(bhvo *BlockHeadVO) {
 		//			fmt.Println("保存交易", hex.EncodeToString(*bhvo.Txs[i].GetHash()))
 		db.Save(*bhvo.Txs[i].GetHash(), bs)
 
+		//		if one.Class() == config.Wallet_tx_type_vote_in {
+		//			fmt.Println("\n打印保存到数据库中的投票", string(*bs), "\n")
+		//		}
+
 		//将之前的交易UTXO输出添加新的交易UTXO输入标记
-		if one.Class() != config.Wallet_tx_type_deposit_in &&
-			one.Class() != config.Wallet_tx_type_pay {
-			continue
-		}
+		//		if one.Class() != config.Wallet_tx_type_deposit_in &&
+		//			one.Class() != config.Wallet_tx_type_pay {
+		//			continue
+		//		}
 
 		for _, two := range *one.GetVin() {
 			txbs, err := db.Find(two.Txid)
@@ -97,7 +101,7 @@ func saveBlockHead(bhvo *BlockHeadVO) {
 				fmt.Println("严重错误3", err)
 				return
 			}
-			err = txItr.SetTxid(two.Vout, one.GetHash())
+			err = txItr.SetTxid(txbs, two.Vout, one.GetHash())
 			if err != nil {
 				fmt.Println("严重错误4", err)
 				return
@@ -371,10 +375,10 @@ func syncBlockForDBAndNeighbor(bhash *[]byte) (*BlockHead, error) {
 		db.Save(*bhvo.Txs[i].GetHash(), bs)
 
 		//将之前的UTXO输出标记为已使用
-		if one.Class() != config.Wallet_tx_type_deposit_in &&
-			one.Class() != config.Wallet_tx_type_pay {
-			continue
-		}
+		//		if one.Class() != config.Wallet_tx_type_deposit_in &&
+		//			one.Class() != config.Wallet_tx_type_pay {
+		//			continue
+		//		}
 
 		for _, two := range *one.GetVin() {
 			txbs, err := db.Find(two.Txid)
@@ -387,7 +391,7 @@ func syncBlockForDBAndNeighbor(bhash *[]byte) (*BlockHead, error) {
 				fmt.Println("严重错误3", err)
 				return nil, err
 			}
-			err = txItr.SetTxid(two.Vout, one.GetHash())
+			err = txItr.SetTxid(txbs, two.Vout, one.GetHash())
 			if err != nil {
 				fmt.Println("严重错误4", err)
 				return nil, err

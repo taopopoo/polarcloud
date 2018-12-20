@@ -243,3 +243,29 @@ func DepositOut() error {
 	fmt.Println("退还押金完成")
 	return err
 }
+
+/*
+	给见证人投票
+*/
+func VoteIn(addr *utils.Multihash, amount uint64) error {
+	//缴纳备用见证人押金交易
+	err := forks.GetLongChain().balance.VoteIn(addr, amount)
+	if err != nil {
+		fmt.Println("缴纳押金失败", err)
+	}
+	fmt.Println("缴纳押金完成")
+	return err
+}
+
+/*
+	退还见证人投票押金
+*/
+func VoteOut(addr *utils.Multihash, amount uint64) error {
+	//缴纳备用见证人押金交易
+	err := forks.GetLongChain().balance.VoteOut(addr, amount)
+	if err != nil {
+		fmt.Println("退还押金失败", err)
+	}
+	fmt.Println("退还押金完成")
+	return err
+}

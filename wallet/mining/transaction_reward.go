@@ -10,7 +10,6 @@ import (
 	//	"fmt"
 	"polarcloud/config"
 	"polarcloud/core/utils"
-	"polarcloud/wallet/db"
 	"polarcloud/wallet/keystore"
 )
 
@@ -20,7 +19,6 @@ import (
 */
 type Tx_reward struct {
 	TxBase
-	CreateTime int64 `json:"CreateTime"` //创建时间
 }
 
 /*
@@ -56,7 +54,6 @@ func (this *Tx_reward) BuildHash() {
 	}
 	m["CreateTime"] = ms["CreateTime"]
 
-	//	delete(m, BlockTx_Gas)
 	bs, err := json.Marshal(m)
 	if err != nil {
 		return
@@ -83,7 +80,6 @@ func (this *Tx_reward) Sign(key *keystore.Address, pwd string) (*[]byte, error) 
 	}
 	m["CreateTime"] = ms["CreateTime"]
 
-	//	delete(m, BlockTx_Gas)
 	bs, err := json.Marshal(m)
 	if err != nil {
 		return nil, err
@@ -91,18 +87,18 @@ func (this *Tx_reward) Sign(key *keystore.Address, pwd string) (*[]byte, error) 
 	return key.Sign(bs, pwd)
 }
 
-/*
-	这个交易输出被使用之后，需要把UTXO输出标记下
-*/
-func (this *Tx_reward) SetTxid(index uint64, txid *[]byte) error {
-	this.Vout[index].Tx = *txid
-	bs, err := this.Json()
-	if err != nil {
-		return err
-	}
-	err = db.Save(this.Hash, bs)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+///*
+//	这个交易输出被使用之后，需要把UTXO输出标记下
+//*/
+//func (this *Tx_reward) SetTxid(index uint64, txid *[]byte) error {
+//	this.Vout[index].Tx = *txid
+//	bs, err := this.Json()
+//	if err != nil {
+//		return err
+//	}
+//	err = db.Save(this.Hash, bs)
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//}

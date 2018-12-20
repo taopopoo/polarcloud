@@ -3,6 +3,7 @@ package wallet
 import (
 	"polarcloud/core/utils"
 	"polarcloud/wallet/mining"
+	"time"
 )
 
 /*
@@ -53,6 +54,7 @@ func Pay(value, tip uint64, addr utils.Multihash) {
 		Vin:        vins,               //交易输入
 		Vout_total: uint64(len(vouts)), //输出交易数量
 		Vout:       vouts,              //交易输出
+		CreateTime: time.Now().Unix(),  //创建时间
 	}
 
 	tx := mining.Tx_Pay{

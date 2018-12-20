@@ -111,17 +111,19 @@ func BuildBlock() {
 	//打包交易
 	tx := make([]TxItr, 0)
 	txids := make([][]byte, 0)
+
+	//打包10秒内的所有交易
+	txs, ids := chain.transactionManager.Package()
+
 	//判断是否是该组第一个块
 	//判断上一个组是否是见证人方式出块，是见证人方式出块，计算上一组出块奖励。
 	if chain.witnessChain.beforeGroup != nil &&
 		chain.witnessChain.group.FirstWitness() {
-		reward := chain.witnessChain.beforeGroup.CountReward()
+		reward := chain.witnessChain.beforeGroup.CountReward(txs)
 		tx = append(tx, reward)
 		txids = append(txids, reward.Hash)
 	}
 
-	//打包10秒内的所有交易
-	txs, ids := chain.transactionManager.Package()
 	tx = append(tx, txs...)
 	txids = append(txids, ids...)
 
@@ -184,10 +186,10 @@ func BuildBlockForPOW() {
 		Type:       config.Wallet_tx_type_mining, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
 		Vout_total: 1,                            //输出交易数量
 		Vout:       vouts,                        //交易输出
+		CreateTime: time.Now().Unix(),            //创建时间
 	}
 	reward := Tx_reward{
-		TxBase:     base,
-		CreateTime: time.Now().Unix(), //创建时间
+		TxBase: base,
 	}
 	txs = append(txs, &reward)
 	reward.BuildHash()
@@ -195,16 +197,17 @@ func BuildBlockForPOW() {
 
 	chain := forks.GetLongChain()
 
+	//打包10秒内的所有交易
+	txss, ids := chain.transactionManager.Package()
+	fmt.Println("打包的交易", len(txss))
+
 	//判断上一个组是否是见证人方式出块，是见证人方式出块，计算上一组出块奖励。
 	if chain.witnessChain.beforeGroup != nil {
-		reward := chain.witnessChain.beforeGroup.CountReward()
+		reward := chain.witnessChain.beforeGroup.CountReward(txss)
 		txs = append(txs, reward)
 		txids = append(txids, reward.Hash)
 	}
 
-	//打包10秒内的所有交易
-	txss, ids := chain.transactionManager.Package()
-	fmt.Println("打包的交易", len(txss))
 	txs = append(txs, txss...)
 	txids = append(txids, ids...)
 

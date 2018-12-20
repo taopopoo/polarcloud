@@ -15,7 +15,7 @@ import (
 
 type TransactionManager struct {
 	witnessBackup *WitnessBackup //备用见证人
-	depositin     *sync.Map      //见证人缴押金,key:string=见证人公钥；value=&TxItr
+	depositin     *sync.Map      //见证人缴押金,key:string=见证人公钥；value:&TxItr=;见证人不能有重复，因此单独管理
 	unpacked      *sync.Map      //未打包的交易,key:string=交易hahs id；value:&TxItr=;
 }
 

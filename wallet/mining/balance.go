@@ -1,11 +1,13 @@
 package mining
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"polarcloud/config"
 	"polarcloud/core/utils"
+	"polarcloud/wallet/db"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -20,7 +22,8 @@ type BalanceManager struct {
 	syncHeight    uint64              //已经同步到的区块高度
 	syncBlockHead chan *BlockHeadVO   //正在同步的余额，准备导入到余额中
 	balance       *sync.Map           //保存各个地址的余额，key:string=收款地址;value:*Balance=收益列表;
-	depositin     *TxItem             //保存押金交易
+	depositin     *TxItem             //保存成为见证人押金交易
+	votein        *sync.Map           //保存本节点投票的押金额度，key:string=见证人地址;value:*Balance=押金列表;
 	witnessBackup *WitnessBackup      //
 	txManager     *TransactionManager //
 }
@@ -31,6 +34,7 @@ func NewBalanceManager(wb *WitnessBackup, tm *TransactionManager) *BalanceManage
 		balance:       new(sync.Map),              //保存各个地址的余额，key:string=收款地址;value:*Balance=收益列表;
 		witnessBackup: wb,                         //
 		txManager:     tm,                         //
+		votein:        new(sync.Map),              //
 	}
 	go bm.run()
 	return bm
@@ -79,6 +83,18 @@ func (this *BalanceManager) GetDepositIn() *TxItem {
 }
 
 /*
+	获取一个地址的押金列表
+*/
+func (this *BalanceManager) GetVoteIn(witnessAddr *utils.Multihash) *Balance {
+	v, ok := this.votein.Load(witnessAddr.B58String())
+	if !ok {
+		return nil
+	}
+	b := v.(*Balance)
+	return b
+}
+
+/*
 	从最后一个块开始统计多个地址的余额
 */
 func (this *BalanceManager) FindBalance(addrs ...*utils.Multihash) ([]*Balance, error) {
@@ -120,7 +136,9 @@ func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 		if txItr.Class() != config.Wallet_tx_type_mining &&
 			txItr.Class() != config.Wallet_tx_type_deposit_in &&
 			txItr.Class() != config.Wallet_tx_type_deposit_out &&
-			txItr.Class() != config.Wallet_tx_type_pay {
+			txItr.Class() != config.Wallet_tx_type_pay &&
+			txItr.Class() != config.Wallet_tx_type_vote_in &&
+			txItr.Class() != config.Wallet_tx_type_vote_out {
 			continue
 		}
 		txItr.BuildHash()
@@ -137,16 +155,6 @@ func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 				continue
 			}
 
-			//			if txItr.Class() == config.Wallet_tx_type_deposit_out {
-			//				if this.depositin == nil {
-			//					continue
-			//				}
-			//				if bytes.Equal(*this.depositin.Addr, *addr) {
-			//					this.depositin = nil
-			//				}
-			//				continue
-			//			}
-
 			v, ok := this.balance.Load(addr.B58String())
 			var ba *Balance
 			if ok {
@@ -158,6 +166,40 @@ func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 			//				fmt.Println("删除掉的交易余额", hex.EncodeToString(vin.Txid)+"_"+strconv.Itoa(int(vin.Vout)))
 			ba.Txs.Delete(hex.EncodeToString(vin.Txid) + "_" + strconv.Itoa(int(vin.Vout)))
 			this.balance.Store(addr.B58String(), ba)
+
+			switch txItr.Class() {
+			case config.Wallet_tx_type_mining:
+			case config.Wallet_tx_type_deposit_in:
+			case config.Wallet_tx_type_deposit_out:
+
+				if this.depositin != nil {
+					if bytes.Equal(*addr, *this.depositin.Addr) {
+						this.depositin = nil
+					}
+				}
+			case config.Wallet_tx_type_pay:
+			case config.Wallet_tx_type_vote_in:
+			case config.Wallet_tx_type_vote_out:
+
+				bs, err := db.Find(vin.Txid)
+				if err != nil {
+					//TODO 不能找到上一个交易，程序出错退出
+					continue
+				}
+				voteinTxItr, err := ParseTxBase(bs)
+				if err != nil {
+					//TODO 不能解析上一个交易，程序出错退出
+					continue
+				}
+				votein := voteinTxItr.(*Tx_vote_in)
+				b, ok := this.votein.Load(votein.Vote.Address.B58String())
+				if ok {
+					ba := b.(*Balance)
+					ba.Txs.Delete(hex.EncodeToString(*voteinTxItr.GetHash()))
+					this.votein.Store(votein.Vote.Address.B58String(), ba)
+				}
+
+			}
 		}
 		//生成新的UTXO收益，保存到列表中
 		for voutIndex, vout := range *txItr.GetVout() {
@@ -166,8 +208,6 @@ func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 			if !validate.IsVerify || !validate.IsMine {
 				continue
 			}
-
-			//				fmt.Println("vout", voutIndex, vout.Address.B58String(), vout.Value)
 
 			txItem := TxItem{
 				Addr:     &vout.Address,
@@ -181,21 +221,27 @@ func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 			case config.Wallet_tx_type_deposit_in:
 				if voutIndex == 0 {
 					this.depositin = &txItem
-					//					v, ok := this.depositin.Load(vout.Address.B58String())
-					//					var ba *Balance
-					//					if ok {
-					//						ba = v.(*Balance)
-					//					} else {
-					//						ba = new(Balance)
-					//						ba.Txs = new(sync.Map)
-					//					}
-					//					ba.Txs.Store(hex.EncodeToString(*txItr.GetHash())+"_"+strconv.Itoa(voutIndex), &txItem)
-					//					this.depositin.Store(vout.Address.B58String(), ba)
 					continue
 				}
 			case config.Wallet_tx_type_deposit_out:
-
 			case config.Wallet_tx_type_pay:
+			case config.Wallet_tx_type_vote_in:
+				if voutIndex == 0 {
+					voteIn := txItr.(*Tx_vote_in)
+					witnessAddr := voteIn.Vote.Address.B58String()
+					v, ok := this.votein.Load(witnessAddr)
+					var ba *Balance
+					if ok {
+						ba = v.(*Balance)
+					} else {
+						ba = new(Balance)
+						ba.Txs = new(sync.Map)
+					}
+					ba.Txs.Store(hex.EncodeToString(*txItr.GetHash())+"_"+strconv.Itoa(voutIndex), &txItem)
+					this.votein.Store(witnessAddr, ba)
+					continue
+				}
+			case config.Wallet_tx_type_vote_out:
 			}
 
 			v, ok := this.balance.Load(vout.Address.B58String())
@@ -296,6 +342,94 @@ func (this *BalanceManager) DepositOut() error {
 	}
 
 	deposiOut := CreateTxDepositOut(key)
+	if deposiOut == nil {
+		//		fmt.Println("33333333333333 22222")
+		return errors.New("交押金失败")
+	}
+	deposiOut.BuildHash()
+	bs, err := deposiOut.Json()
+	if err != nil {
+		//		fmt.Println("33333333333333 33333")
+		return err
+	}
+	//	fmt.Println("4444444444444444")
+	MulticastTx(bs)
+	//	fmt.Println("5555555555555555")
+	txbase, err := ParseTxBase(bs)
+	if err != nil {
+		return err
+	}
+	txbase.BuildHash()
+	//	fmt.Println("66666666666666")
+	//验证交易
+	if !txbase.Check() {
+		//交易不合法，则不发送出去
+		fmt.Println("交易不合法，则不发送出去")
+		return errors.New("交易不合法，则不发送出去")
+	}
+	this.txManager.AddTx(txbase)
+	//		unpackedTransactions.Store(hex.EncodeToString(*txbase.GetHash()), txbase)
+	//	fmt.Println("7777777777777777")
+	return nil
+}
+
+/*
+	投票押金，并广播
+*/
+func (this *BalanceManager) VoteIn(witnessAddr *utils.Multihash, amount uint64) error {
+	key, err := keystore.GetCoinbase()
+	if err != nil {
+		return err
+	}
+
+	voetIn := CreateTxVoteIn(key, amount, witnessAddr)
+	if voetIn == nil {
+		//		fmt.Println("33333333333333 22222")
+		return errors.New("交押金失败")
+	}
+	voetIn.BuildHash()
+	bs, err := voetIn.Json()
+	if err != nil {
+		//		fmt.Println("33333333333333 33333")
+		return err
+	}
+	//	fmt.Println("4444444444444444")
+	MulticastTx(bs)
+	//	fmt.Println("5555555555555555")
+	txbase, err := ParseTxBase(bs)
+	if err != nil {
+		return err
+	}
+	txbase.BuildHash()
+	//	fmt.Println("66666666666666")
+	//验证交易
+	if !txbase.Check() {
+		//交易不合法，则不发送出去
+		fmt.Println("交易不合法，则不发送出去")
+		return errors.New("交易不合法，则不发送出去")
+	}
+	ok := this.txManager.AddTx(txbase)
+	fmt.Println("添加投票押金是否成功", ok)
+	//		unpackedTransactions.Store(hex.EncodeToString(*txbase.GetHash()), txbase)
+	//	fmt.Println("7777777777777777")
+	return nil
+}
+
+/*
+	退还投票押金，并广播
+*/
+func (this *BalanceManager) VoteOut(witnessAddr *utils.Multihash, amount uint64) error {
+	key, err := keystore.GetCoinbase()
+	if err != nil {
+		return err
+	}
+
+	balance := this.GetVoteIn(witnessAddr)
+	if balance == nil {
+		return errors.New("没有对这个见证人投票")
+	}
+
+	deposiOut := CreateTxVoteOut(key, amount, witnessAddr)
 	if deposiOut == nil {
 		//		fmt.Println("33333333333333 22222")
 		return errors.New("交押金失败")

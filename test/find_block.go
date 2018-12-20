@@ -15,7 +15,7 @@ func main() {
 
 func find(dir string) {
 	nums := []uint64{}
-	for i := uint64(1); i < 100; i++ {
+	for i := uint64(1); i < 1000; i++ {
 		nums = append(nums, i)
 	}
 
@@ -64,12 +64,13 @@ func find(dir string) {
 					fmt.Println("解析第", i, "个块的交易错误", err)
 					return
 				}
-				txid := make([]byte, 0)
-				if txBase.Class() == config.Wallet_tx_type_deposit_in {
-					deposit := txBase.(*mining.Tx_deposit_in)
-					txid = deposit.Hash
-				}
-				fmt.Println(string(hex.EncodeToString(txid)), "\n", string(*tx), "\n")
+
+				txid := txBase.GetHash()
+				//				if txBase.Class() == config.Wallet_tx_type_deposit_in {
+				//					deposit := txBase.(*mining.Tx_deposit_in)
+				//					txid = deposit.Hash
+				//				}
+				fmt.Println(string(hex.EncodeToString(*txid)), "\n", string(*tx), "\n")
 			}
 		}
 	}

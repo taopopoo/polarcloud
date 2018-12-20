@@ -31,7 +31,6 @@ func (this *Tx_deposit_in) BuildHash() {
 	if err != nil {
 		return
 	}
-	delete(m, BlockTx_Gas)
 	bs, err := json.Marshal(m)
 	if err != nil {
 		return
@@ -52,7 +51,6 @@ func (this *Tx_deposit_in) Sign(key *keystore.Address, pwd string) (*[]byte, err
 	if err != nil {
 		return nil, err
 	}
-	delete(m, BlockTx_Gas)
 	bs, err := json.Marshal(m)
 	if err != nil {
 		return nil, err
@@ -105,7 +103,7 @@ func (this *Tx_deposit_in) GetWitness() *utils.Multihash {
 */
 type Tx_deposit_out struct {
 	TxBase
-	CreateTime int64 `json:"CreateTime"` //创建时间
+	//	CreateTime int64 `json:"CreateTime"` //创建时间
 }
 
 /*
@@ -161,21 +159,21 @@ func (this *Tx_deposit_out) Check() bool {
 	return true
 }
 
-/*
-	这个交易输出被使用之后，需要把UTXO输出标记下
-*/
-func (this *Tx_deposit_out) SetTxid(index uint64, txid *[]byte) error {
-	this.Vout[index].Tx = *txid
-	bs, err := this.Json()
-	if err != nil {
-		return err
-	}
-	err = db.Save(this.Hash, bs)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+///*
+//	这个交易输出被使用之后，需要把UTXO输出标记下
+//*/
+//func (this *Tx_deposit_out) SetTxid(index uint64, txid *[]byte) error {
+//	this.Vout[index].Tx = *txid
+//	bs, err := this.Json()
+//	if err != nil {
+//		return err
+//	}
+//	err = db.Save(this.Hash, bs)
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//}
 
 /*
 	创建一个见证人押金交易
@@ -283,10 +281,11 @@ func CreateTxDepositIn(key *keystore.Address, amount uint64) *Tx_deposit_in {
 
 	//
 	base := TxBase{
-		Type:      config.Wallet_tx_type_deposit_in, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
-		Vin_total: 1,                                //输入交易数量
-		Vin:       vins,                             //交易输入
-		Vout:      vouts,                            //
+		Type:       config.Wallet_tx_type_deposit_in, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
+		Vin_total:  1,                                //输入交易数量
+		Vin:        vins,                             //交易输入
+		Vout:       vouts,                            //
+		CreateTime: time.Now().Unix(),                //创建时间
 	}
 	txin := Tx_deposit_in{
 		TxBase: base,
@@ -370,14 +369,14 @@ func CreateTxDepositOut(key *keystore.Address) *Tx_deposit_out {
 
 	//
 	base := TxBase{
-		Type:      config.Wallet_tx_type_deposit_out, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
-		Vin_total: 1,                                 //输入交易数量
-		Vin:       vins,                              //交易输入
-		Vout:      vouts,                             //
+		Type:       config.Wallet_tx_type_deposit_out, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
+		Vin_total:  1,                                 //输入交易数量
+		Vin:        vins,                              //交易输入
+		Vout:       vouts,                             //
+		CreateTime: time.Now().Unix(),                 //创建时间
 	}
 	txin := Tx_deposit_out{
-		TxBase:     base,
-		CreateTime: time.Now().Unix(),
+		TxBase: base,
 	}
 	txin.BuildHash()
 	return &txin

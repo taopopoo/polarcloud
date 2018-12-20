@@ -1,3 +1,6 @@
+/*
+*	地址主类
+ */
 package keystore
 
 import (
@@ -10,6 +13,7 @@ type KeyStore struct {
 	Wallet *Wallet
 }
 
+//根据种子新建keystore
 func NewKeyStore(seed ...string) *KeyStore {
 	ks := new(KeyStore)
 	ks.Wallet = NewWallet()
@@ -21,6 +25,8 @@ func NewKeyStore(seed ...string) *KeyStore {
 	}
 	return ks
 }
+
+//加载种子
 func (ks *KeyStore) Load() (int, error) {
 	l, err := ks.Wallet.LoadSeeds()
 	if err == nil {
@@ -28,6 +34,8 @@ func (ks *KeyStore) Load() (int, error) {
 	}
 	return l, err
 }
+
+//新增种子入keystore
 func (ks *KeyStore) NewLoad(seed, password string) error {
 	pass := md5.Sum([]byte(password))
 	seedData, err := Encrypt([]byte(seed), pass[:])
@@ -42,32 +50,45 @@ func (ks *KeyStore) NewLoad(seed, password string) error {
 	ks.Wallet.GetNewAddress(pass[:])
 	return nil
 }
+
+//获取地址列表
 func (ks *KeyStore) GetAddr() []Address {
 	addrlist := ks.Wallet.GetAllAddress()
 	return addrlist
 }
+
+//生成一个新的地址，需要密码
 func (ks *KeyStore) GetNewAddr(password string) (*Address, error) {
 	pass := md5.Sum([]byte(password))
 	addr, err := ks.Wallet.GetNewAddress(pass[:])
 	return addr, err
 }
+
+//获取一个基础地址
 func (ks *KeyStore) GetCoinbase() (*Address, error) {
 	addr, err := ks.Wallet.GetCoinbase()
 	return addr, err
 }
+
+//设置一个基础地址
 func (ks *KeyStore) SetCoinbase(index int) {
 	ks.Wallet.SetCoinbase(index)
 }
+
+//根据地址获取私钥
 func (ks *KeyStore) GetPriKeyByAddress(address, password string) (prikey *ecdsa.PrivateKey, err error) {
 	pass := md5.Sum([]byte(password))
 	prikey, err = ks.Wallet.GetPriKey(address, pass[:])
 	return
 }
 
+//验证地址
 func (ks *KeyStore) ValidateAddress(address *Address) (validate Validate) {
 	validate = ks.Wallet.ValidateAddress(address)
 	return
 }
+
+//根据主地址获取一个新的扩展地址
 func (ks *KeyStore) GetNewExpAddr(preAddress *Address) *utils.Multihash {
 	addr := ks.Wallet.GetNewExpAddress(preAddress)
 	return addr

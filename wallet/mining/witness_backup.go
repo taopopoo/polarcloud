@@ -2,6 +2,7 @@ package mining
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"polarcloud/config"
 	"polarcloud/core/utils"
@@ -13,9 +14,10 @@ import (
 //var witnesses = make(WitnessBackup, 0)
 
 type WitnessBackup struct {
-	chain     *Chain //
-	lock      *sync.RWMutex
-	witnesses []BackupWitness
+	chain        *Chain           //
+	lock         *sync.RWMutex    //
+	witnesses    []*BackupWitness //
+	witnessesMap *sync.Map        //key:string=备用见证人地址;value:*BackupWitness=备用见证人;
 }
 
 func (this WitnessBackup) Len() int {
@@ -34,13 +36,21 @@ func (this WitnessBackup) Swap(i, j int) {
 	添加一个见证人到投票列表
 */
 func (this *WitnessBackup) addWitness(witnessAddr *utils.Multihash, score uint64) {
-	witness := BackupWitness{
-		Addr:  witnessAddr, //见证人地址
-		Score: 0,           //评分
+	fmt.Println("添加一个见证人", witnessAddr.B58String())
+	_, ok := this.witnessesMap.Load(witnessAddr.B58String())
+	if ok {
+		fmt.Println("见证人已经存在")
+		return
+	}
+	witness := &BackupWitness{
+		Addr:  witnessAddr,   //见证人地址
+		Score: score,         //押金
+		Vote:  new(sync.Map), //投票押金
 	}
 	this.lock.Lock()
 	this.witnesses = append(this.witnesses, witness)
 	this.lock.Unlock()
+	this.witnessesMap.Store(witnessAddr.B58String(), witness)
 }
 
 /*
@@ -59,6 +69,54 @@ func (this *WitnessBackup) DelWitness(witnessAddr *utils.Multihash) {
 	}
 	//	fmt.Println("++++++删除备用见证人后", len(this.witnesses))
 	this.lock.Unlock()
+	this.witnessesMap.Delete(witnessAddr.B58String())
+}
+
+/*
+	添加一个投票
+*/
+func (this *WitnessBackup) addVote(witnessAddr, voteAddr *utils.Multihash, score uint64) {
+	//	fmt.Println("+++++++++++添加一个投票", witnessAddr.B58String(), voteAddr.B58String(), score)
+	v, ok := this.witnessesMap.Load(witnessAddr.B58String())
+	if !ok {
+		//		fmt.Println("++++++++添加失败")
+		return
+	}
+	bw := v.(*BackupWitness)
+	v, ok = bw.Vote.Load(voteAddr.B58String())
+	if ok {
+		vs := v.(*VoteScore)
+		vs.Score = vs.Score + score
+	} else {
+		vs := new(VoteScore)
+		vs.Addr = voteAddr
+		vs.Score = score
+		bw.Vote.Store(voteAddr.B58String(), vs)
+	}
+}
+
+/*
+	添加一个见证人到投票列表
+*/
+func (this *WitnessBackup) DelVote(witnessAddr, voteAddr *utils.Multihash, score uint64) {
+	//	fmt.Println("------------删除一个投票", witnessAddr.B58String(), voteAddr.B58String(), score)
+	v, ok := this.witnessesMap.Load(witnessAddr.B58String())
+	if !ok {
+		//		fmt.Println("---------不存在，所以删除失败1111")
+		return
+	}
+	bw := v.(*BackupWitness)
+	v, ok = bw.Vote.Load(voteAddr.B58String())
+	if !ok {
+		fmt.Println("---------不存在，所以删除失败2222")
+		return
+	}
+	vs := v.(*VoteScore)
+	vs.Score = vs.Score - score
+	//如果押金为0，则删除这个投票
+	if vs.Score == 0 {
+		bw.Vote.Delete(voteAddr.B58String())
+	}
 }
 
 /*
@@ -82,6 +140,7 @@ func (this *WitnessBackup) haveWitness(witnessAddr *utils.Multihash) (have bool)
 type BackupWitness struct {
 	Addr  *utils.Multihash //见证人地址
 	Score uint64           //评分
+	Vote  *sync.Map        //投票押金 key:string=投票人地址;value:*VoteScore=投票人和押金;
 }
 
 /*
@@ -97,28 +156,41 @@ func (this *WitnessBackup) CreateWitnessGroup() *Witness {
 	sort.Sort(this)
 	this.lock.Unlock()
 
-	var startWitness *Witness
-	lastWitness := new(Witness)
-	//	var lastWitness *Witness
-	for i, one := range this.witnesses {
-		if i == 0 {
-			lastWitness.Addr = one.Addr
-			startWitness = lastWitness
-		} else if i >= config.Witness_backup_max {
-			//只获取排名靠前的n个备用见证人
-			break
-		} else {
-			newWitness := new(Witness)
-			newWitness.Addr = one.Addr
-			newWitness.PreWitness = lastWitness
-			lastWitness.NextWitness = newWitness
-			lastWitness = newWitness
-		}
-
+	ws := make([]*Witness, 0)
+	for i := 0; i < config.Witness_backup_max && i < len(this.witnesses); i++ {
+		newWitness := new(Witness)
+		newWitness.Addr = this.witnesses[i].Addr
+		newWitness.Score = this.witnesses[i].Score
+		newWitness.Votes = make([]*VoteScore, 0)
+		this.witnesses[i].Vote.Range(func(k, v interface{}) bool {
+			vs := v.(*VoteScore)
+			newvs := new(VoteScore)
+			newvs.Addr = vs.Addr
+			newvs.Score = vs.Score
+			newWitness.Votes = append(newWitness.Votes, newvs)
+			return true
+		})
+		ws = append(ws, newWitness)
 	}
+	//	for i, one := range this.witnesses {
+	//		if i == 0 {
+	//			lastWitness.Addr = one.Addr
+	//			startWitness = lastWitness
+	//		} else if i >= config.Witness_backup_max {
+	//			//只获取排名靠前的n个备用见证人
+	//			break
+	//		} else {
+	//			newWitness := new(Witness)
+	//			newWitness.Addr = one.Addr
+	//			newWitness.PreWitness = lastWitness
+	//			lastWitness.NextWitness = newWitness
+	//			lastWitness = newWitness
+	//		}
+
+	//	}
 	random := this.chain.HashRandom()
-	fmt.Println("前n个块hash", random)
-	start := OrderWitness(startWitness, random)
+	fmt.Println("前n个块hash", hex.EncodeToString(*random))
+	start := OrderWitness(ws, random)
 	last := start
 	for {
 		if last == nil {
@@ -154,9 +226,18 @@ func (this *WitnessBackup) PrintWitnessBackup() {
 */
 func NewWitnessBackup(chain *Chain) *WitnessBackup {
 	wb := WitnessBackup{
-		chain:     chain, //
-		lock:      new(sync.RWMutex),
-		witnesses: make([]BackupWitness, 0),
+		chain:        chain, //
+		lock:         new(sync.RWMutex),
+		witnesses:    make([]*BackupWitness, 0),
+		witnessesMap: new(sync.Map),
 	}
 	return &wb
+}
+
+/*
+	投票押金，作为股权分红
+*/
+type VoteScore struct {
+	Addr  *utils.Multihash //投票人地址
+	Score uint64           //押金
 }

@@ -7,19 +7,26 @@ import (
 	"polarcloud/core/utils"
 )
 
+//种子
 type Seed struct {
 	Index     int
 	Data      []byte
 	AddrIndex int64
 	Coinbase  CoinbaseInfo
 }
+
+//基础地址
 type CoinbaseInfo Address
+
+//扩展地址
 type ExpAddress struct {
 	PreAddress *Address
 	Index      int64
 	Pubkey     []byte
 	Address    *utils.Multihash
 }
+
+//地址验证结果
 type Validate struct {
 	IsVerify     bool
 	IsMine       bool
@@ -29,6 +36,8 @@ type Validate struct {
 	MainAddrInfo *utils.Multihash
 	ExpAddrInfo  ExpAddress
 }
+
+//地址
 type Address struct {
 	SeedIndex int
 	Index     int64
@@ -37,9 +46,12 @@ type Address struct {
 	Hash      *utils.Multihash
 }
 
+//根据地址获取公钥
 func (addr *Address) GetPubKey() []byte {
 	return addr.Pubkey
 }
+
+//根据地址获取私钥
 func (addr *Address) GetPriKey(password string) ([]byte, error) {
 	pass := md5.Sum([]byte(password))
 	pri, err := Decrypt(addr.PriKey, pass[:])
@@ -53,6 +65,8 @@ func (addr *Address) GetPriKey(password string) ([]byte, error) {
 	}
 	return pri, nil
 }
+
+//签名
 func (addr *Address) Sign(text []byte, password string) (*[]byte, error) {
 	pri, err := addr.GetPriKey(password)
 	if err != nil {
@@ -65,6 +79,8 @@ func (addr *Address) Sign(text []byte, password string) (*[]byte, error) {
 	}
 	return sign, nil
 }
+
+//验证签名
 func (addr *Address) Verify(text []byte, sign string) (bool, error) {
 	res, err := utils.Verify(addr.Pubkey, text, sign)
 	return res, err

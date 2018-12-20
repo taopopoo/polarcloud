@@ -2,6 +2,7 @@ package mining
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"polarcloud/config"
 	"polarcloud/core/engine"
@@ -13,23 +14,24 @@ import (
 )
 
 const (
-	BlockTx_Hash      = "hash"
 	BlockTx_Gas       = "gas"
+	BlockTx_Hash      = "hash"
 	BlockTx_Vout      = "vout"
 	BlockTx_Vout_Tx   = "tx"
 	BlockTx_Blockhash = "blockhash"
 )
 
 type TxItr interface {
-	Class() uint64                            //交易类型
-	BuildHash()                               //构建交易hash
-	GetHash() *[]byte                         //获得交易hash
-	Check() bool                              //检查交易是否合法
-	Json() (*[]byte, error)                   //将交易格式化成json字符串
-	Balance() *sync.Map                       //查询交易输出，统计输出地址余额key:utils.Multihash=收款地址;value:TxItem=地址余额;
-	GetVin() *[]Vin                           //
-	GetVout() *[]Vout                         //
-	SetTxid(index uint64, txid *[]byte) error //
+	Class() uint64                                        //交易类型
+	BuildHash()                                           //构建交易hash
+	GetHash() *[]byte                                     //获得交易hash
+	Check() bool                                          //检查交易是否合法
+	Json() (*[]byte, error)                               //将交易格式化成json字符串
+	Balance() *sync.Map                                   //查询交易输出，统计输出地址余额key:utils.Multihash=收款地址;value:TxItem=地址余额;
+	GetVin() *[]Vin                                       //
+	GetVout() *[]Vout                                     //
+	GetGas() uint64                                       //
+	SetTxid(bs *[]byte, index uint64, txid *[]byte) error //
 }
 
 /*
@@ -42,16 +44,20 @@ type TxBase struct {
 	Vin        []Vin  `json:"vin"`        //交易输入
 	Vout_total uint64 `json:"vout_total"` //输出交易数量
 	Vout       []Vout `json:"vout"`       //交易输出
-	Gas        uint64 `json:"gas"`        //交易手续费
-	BlockHash  []byte `json:"blockhash"`  //自己被打包到的块hash
+	Gas        uint64 `json:"gas"`        //交易手续费，不参与区块hash，只用来保存
+	CreateTime int64  `json:"lock_time"`  //创建时间
+	BlockHash  []byte `json:"blockhash"`  //下一个区块hash
 }
 
 func (this *TxBase) GetVin() *[]Vin {
 	return &this.Vin
 }
-
 func (this *TxBase) GetVout() *[]Vout {
 	return &this.Vout
+}
+
+func (this *TxBase) GetGas() uint64 {
+	return this.Gas
 }
 
 func (this *TxBase) GetHash() *[]byte {
@@ -97,6 +103,7 @@ func (this *TxBase) BuildMap() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	delete(m, BlockTx_Gas)
 	delete(m, BlockTx_Hash)
 	delete(m, BlockTx_Blockhash)
 
@@ -106,18 +113,53 @@ func (this *TxBase) BuildMap() (map[string]interface{}, error) {
 
 /*
 	这个交易输出被使用之后，需要把UTXO输出标记下
+	注意：本方法只会保存
 */
-func (this *TxBase) SetTxid(index uint64, txid *[]byte) error {
-	this.Vout[index].Tx = *txid
-	bs, err := this.Json()
+func (this *TxBase) SetTxid(bs *[]byte, index uint64, txid *[]byte) error {
+	txMap := make(map[string]interface{})
+	err := json.Unmarshal(*bs, &txMap)
 	if err != nil {
 		return err
 	}
-	err = db.Save(this.Hash, bs)
+	v := txMap["vout"]
+	if v == nil {
+		return errors.New("解析失败")
+	}
+	vs := v.([]interface{})
+	vouts := make([]Vout, 0)
+	for _, one := range vs {
+		voutBs, err := json.Marshal(one)
+		if err != nil {
+			return err
+		}
+		vout := new(Vout)
+		err = json.Unmarshal(voutBs, vout)
+		if err != nil {
+			return err
+		}
+		vouts = append(vouts, *vout)
+	}
+
+	vouts[index].Tx = *txid
+	txMap["vout"] = vouts
+
+	txbs, err := json.Marshal(txMap)
 	if err != nil {
 		return err
 	}
-	return nil
+	err = db.Save(this.Hash, &txbs)
+	return err
+
+	//	this.Vout[index].Tx = *txid
+	//	bs, err := this.Json()
+	//	if err != nil {
+	//		return err
+	//	}
+	//	err = db.Save(this.Hash, bs)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	return nil
 }
 
 /*
@@ -154,6 +196,11 @@ func ParseTxBase(bs *[]byte) (TxItr, error) {
 	case config.Wallet_tx_type_pay: //普通支付
 		tx = new(Tx_Pay)
 	case config.Wallet_tx_type_account: //申请账户
+		tx = new(Tx_Pay)
+	case config.Wallet_tx_type_vote_in: //
+		tx = new(Tx_vote_in)
+	case config.Wallet_tx_type_vote_out: //
+		tx = new(Tx_vote_out)
 	}
 	err = json.Unmarshal(*bs, tx)
 	if err != nil {

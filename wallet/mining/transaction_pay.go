@@ -9,6 +9,7 @@ import (
 	"polarcloud/core/utils"
 	"polarcloud/wallet/db"
 	"polarcloud/wallet/keystore"
+	"time"
 )
 
 /*
@@ -247,6 +248,7 @@ func CreateTxPay(address *utils.Multihash, amount, gas uint64, comment string) (
 		Vout_total: uint64(len(vouts)),        //输出交易数量
 		Vout:       vouts,                     //交易输出
 		Gas:        gas,                       //交易手续费
+		CreateTime: time.Now().Unix(),         //创建时间
 		//	BlockHash  []byte `json:"blockhash"`  //自己被打包到的块hash
 	}
 	pay := Tx_Pay{

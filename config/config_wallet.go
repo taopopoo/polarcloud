@@ -20,10 +20,12 @@ const (
 const (
 	Wallet_tx_type_start       = 0   //
 	Wallet_tx_type_mining      = 0   //挖矿所得
-	Wallet_tx_type_deposit_in  = 1   //投票参与挖矿输入，余额锁定
-	Wallet_tx_type_deposit_out = 2   //投票参与挖矿输出，余额解锁
+	Wallet_tx_type_deposit_in  = 1   //备用见证人押金输入，余额锁定
+	Wallet_tx_type_deposit_out = 2   //备用见证人押金输出，余额解锁
 	Wallet_tx_type_pay         = 3   //普通支付
 	Wallet_tx_type_account     = 4   //申请账户
+	Wallet_tx_type_vote_in     = 5   //参与见证人投票输入，余额锁定
+	Wallet_tx_type_vote_out    = 6   //参与见证人投票输出，余额解锁
 	Wallet_tx_type_end         = 100 //
 )
 
