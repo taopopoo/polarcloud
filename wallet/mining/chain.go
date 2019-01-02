@@ -105,37 +105,34 @@ func AddBlock(bh *BlockHead, txs *[]TxItr) bool {
 		switch one.Class() {
 		//过滤见证人押金交易，添加见证人
 		case config.Wallet_tx_type_deposit_in:
-			//			depositTxs = append(depositTxs, one)
-			addr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
-			if err != nil {
-				continue
-			}
-			score := (*one.GetVout())[0].Value
-			chain.witnessBackup.addWitness(addr, score)
+			//			addr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
+			//			if err != nil {
+			//				continue
+			//			}
+			//这里决定了交易输出地址才是见证人地址。
+			vout := (*one.GetVout())[0]
+			score := vout.Value
+			chain.witnessBackup.addWitness(&vout.Address, score)
 		case config.Wallet_tx_type_deposit_out:
-			addr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
-			if err != nil {
-				continue
+			for _, two := range *one.GetVin() {
+				addr, err := keystore.ParseHashByPubkey(two.Puk)
+				if err != nil {
+					continue
+				}
+				chain.witnessBackup.DelWitness(addr)
 			}
-			chain.witnessBackup.DelWitness(addr)
-			//			//如果是自己，则删除
-			//			if chain.balance.depositin == nil {
-			//				continue
-			//			}
-			//			if !bytes.Equal(*addr, *chain.balance.depositin.Addr) {
-			//				continue
-			//			}
-			//			chain.balance.depositin = nil
 		case config.Wallet_tx_type_vote_in:
-			//			depositTxs = append(depositTxs, one)
-			voteAddr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
-			if err != nil {
-				continue
-			}
-			score := (*one.GetVout())[0].Value
+			//			voteAddr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
+			//			if err != nil {
+			//				continue
+			//			}
+			//这里决定了交易输出地址才是见证人地址。
+			//只有下标为0的输出才是押金。
+			vout := (*one.GetVout())[0]
+			score := vout.Value
 			votein := one.(*Tx_vote_in)
 
-			chain.witnessBackup.addVote(&votein.Vote.Address, voteAddr, score)
+			chain.witnessBackup.addVote(&votein.Vote, &vout.Address, score)
 		case config.Wallet_tx_type_vote_out:
 
 			for _, oneVin := range *one.GetVin() {
@@ -150,23 +147,15 @@ func AddBlock(bh *BlockHead, txs *[]TxItr) bool {
 					//TODO 不能解析上一个交易，程序出错退出
 					continue
 				}
-				votein := txItr.(*Tx_vote_in)
-				score := votein.Vout[oneVin.Vout].Value
-				voteAddr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
-				if err != nil {
+				//因为有可能退回金额不够手续费，所以输入中加入了其他类型交易
+				if txItr.Class() != config.Wallet_tx_type_vote_in {
 					continue
 				}
-				chain.witnessBackup.DelVote(&votein.Vote.Address, voteAddr, score)
+				vout := (*txItr.GetVout())[oneVin.Vout]
+				votein := txItr.(*Tx_vote_in)
+				chain.witnessBackup.DelVote(&votein.Vote, &vout.Address, vout.Value)
 			}
 
-			//			//如果是自己，则删除
-			//			if chain.balance.depositin == nil {
-			//				continue
-			//			}
-			//			if !bytes.Equal(*addr, *chain.balance.depositin.Addr) {
-			//				continue
-			//			}
-			//			chain.balance.depositin = nil
 		}
 	}
 

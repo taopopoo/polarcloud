@@ -64,6 +64,22 @@ func GetBalanceForAddr(addr *utils.Multihash) uint64 {
 }
 
 /*
+	获取区块是否同步完成
+*/
+func GetSyncFinish() bool {
+	//判断是否同步完成
+	if GetHighestBlock() <= 0 {
+		//区块未同步完成，不能挖矿
+		return false
+	}
+	if GetHighestBlock() > GetCurrentBlock() {
+		//区块未同步完成，不能挖矿
+		return false
+	}
+	return true
+}
+
+/*
 	获取区块开始高度
 */
 func GetStartingBlock() uint64 {
@@ -101,8 +117,8 @@ func GetGroupHeight() uint64 {
 /*
 	给收款地址转账
 */
-func SendToAddress(address *utils.Multihash, amount uint64, comment string) (*Tx_Pay, error) {
-	txpay, err := CreateTxPay(address, amount, config.Mining_gas, comment)
+func SendToAddress(address *utils.Multihash, amount, gas uint64, pwd, comment string) (*Tx_Pay, error) {
+	txpay, err := CreateTxPay(address, amount, gas, pwd, comment)
 	if err != nil {
 		fmt.Println("创建交易失败", err)
 		return nil, err
@@ -221,9 +237,9 @@ func getValueForNeighbor(bhash *[]byte) *[]byte {
 /*
 	缴纳押金，成为备用见证人
 */
-func DepositIn(amount uint64) error {
+func DepositIn(amount, gas uint64, pwd string) error {
 	//缴纳备用见证人押金交易
-	err := forks.GetLongChain().balance.DepositIn(amount)
+	err := forks.GetLongChain().balance.DepositIn(amount, gas, pwd)
 	if err != nil {
 		fmt.Println("缴纳押金失败", err)
 	}
@@ -233,10 +249,12 @@ func DepositIn(amount uint64) error {
 
 /*
 	退还押金
+	@addr    string    可选（默认退回到原地址）。押金赎回到的账户地址
+	@amount  uint64    可选（默认退还全部押金）。押金金额
 */
-func DepositOut() error {
+func DepositOut(addr string, amount, gas uint64, pwd string) error {
 	//缴纳备用见证人押金交易
-	err := forks.GetLongChain().balance.DepositOut()
+	err := forks.GetLongChain().balance.DepositOut(addr, amount, gas, pwd)
 	if err != nil {
 		fmt.Println("退还押金失败", err)
 	}
@@ -247,9 +265,9 @@ func DepositOut() error {
 /*
 	给见证人投票
 */
-func VoteIn(addr *utils.Multihash, amount uint64) error {
+func VoteIn(witnessAddr *utils.Multihash, addr string, amount, gas uint64, pwd string) error {
 	//缴纳备用见证人押金交易
-	err := forks.GetLongChain().balance.VoteIn(addr, amount)
+	err := forks.GetLongChain().balance.VoteIn(witnessAddr, addr, amount, gas, pwd)
 	if err != nil {
 		fmt.Println("缴纳押金失败", err)
 	}
@@ -260,9 +278,9 @@ func VoteIn(addr *utils.Multihash, amount uint64) error {
 /*
 	退还见证人投票押金
 */
-func VoteOut(addr *utils.Multihash, amount uint64) error {
+func VoteOut(witnessAddr *utils.Multihash, addr string, amount, gas uint64, pwd string) error {
 	//缴纳备用见证人押金交易
-	err := forks.GetLongChain().balance.VoteOut(addr, amount)
+	err := forks.GetLongChain().balance.VoteOut(witnessAddr, addr, amount, gas, pwd)
 	if err != nil {
 		fmt.Println("退还押金失败", err)
 	}

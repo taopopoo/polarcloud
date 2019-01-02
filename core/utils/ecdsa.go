@@ -12,6 +12,7 @@ import (
 	//"errors"
 	"fmt"
 	"io/ioutil"
+
 	//"math/big"
 	"os"
 	//"strings"
@@ -242,12 +243,13 @@ func Sign(prk *ecdsa.PrivateKey, bs []byte) (*[]byte, error) {
 }*/
 
 //Verify 对密文和明文进行匹配校验
-func Verify(pukbyte, text []byte, passwd string) (bool, error) {
+func Verify(pukbyte, text []byte, sign []byte) (bool, error) {
+	//	fmt.Println("对密文和明文进行匹配校验\n", len(pukbyte), pukbyte, "\n", string(text), "\n", len(sign), sign)
 	/*pukbyte, err := MarshalPubkey(puk)
 	if err != nil {
 		return false, err
 	}*/
-	res := VerifyS256(text, pukbyte, passwd)
+	res := VerifyS256(text, pukbyte, sign)
 	return res, nil
 }
 

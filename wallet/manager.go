@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"path/filepath"
 	"polarcloud/config"
 	"polarcloud/core/utils"
@@ -60,9 +61,14 @@ func Register() {
 
 	//当本地数据库为空时，需要先同步第一个区块，这个只有初始3个矿工需要这个操作
 
-	//	fmt.Println("检查区块是否合法")
+	fmt.Println("检查区块是否合法")
 	//检查区块是否被篡改，中间是否有不连续的块。
-	//	mining.CheckBlockDB()
+	ok := mining.CheckBlockDB()
+	if !ok {
+		fmt.Println("验证区块失败")
+		os.Exit(1)
+	}
+	fmt.Println("区块合法性检查完成")
 
 	fmt.Println("开始加载数据库中的区块")
 	//加载数据库中的区块

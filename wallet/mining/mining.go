@@ -172,34 +172,57 @@ func BuildBlockForPOW() {
 
 	fmt.Println("===准备pow方式出块===")
 
+	chain := forks.GetLongChain()
+	lastBlock := chain.GetLastBlock()
+
 	//打包交易
 	txs := make([]TxItr, 0)
 	txids := make([][]byte, 0)
 
-	//构造出块奖励
-	vouts := make([]Vout, 0)
-	vouts = append(vouts, Vout{
-		Value:   config.Mining_reward, //输出金额 = 实际金额 * 100000000
-		Address: *addr.Hash,           //钱包地址
-	})
-	base := TxBase{
-		Type:       config.Wallet_tx_type_mining, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
-		Vout_total: 1,                            //输出交易数量
-		Vout:       vouts,                        //交易输出
-		CreateTime: time.Now().Unix(),            //创建时间
-	}
-	reward := Tx_reward{
-		TxBase: base,
-	}
-	txs = append(txs, &reward)
-	reward.BuildHash()
-	txids = append(txids, reward.Hash)
-
-	chain := forks.GetLongChain()
-
 	//打包10秒内的所有交易
 	txss, ids := chain.transactionManager.Package()
 	fmt.Println("打包的交易", len(txss))
+
+	allGas := uint64(0)
+	for _, one := range txss {
+		allGas = allGas + one.GetGas()
+	}
+
+	//第一个块产出80个币
+	//每增加一定块数，产出减半，直到为0
+	//最多减半9次，第10次减半后产出为0
+	oneReward := uint64(config.Mining_reward)
+	n := (lastBlock.Height + 1) / config.Mining_block_cycle
+	if n < 10 {
+		for i := uint64(0); i < n; i++ {
+			oneReward = oneReward / 2
+		}
+	} else {
+		oneReward = 0
+	}
+	allReward := oneReward + allGas
+
+	//构造出块奖励
+	if allReward > 0 {
+		vouts := make([]Vout, 0)
+		vouts = append(vouts, Vout{
+			Value:   allReward,  //输出金额 = 实际金额 * 100000000
+			Address: *addr.Hash, //钱包地址
+		})
+		base := TxBase{
+			Type:       config.Wallet_tx_type_mining, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
+			Vout_total: uint64(len(vouts)),           //输出交易数量
+			Vout:       vouts,                        //交易输出
+			LockHeight: lastBlock.Height + 100,       //锁定高度
+			//			CreateTime: time.Now().Unix(),            //创建时间
+		}
+		reward := Tx_reward{
+			TxBase: base,
+		}
+		txs = append(txs, &reward)
+		reward.BuildHash()
+		txids = append(txids, reward.Hash)
+	}
 
 	//判断上一个组是否是见证人方式出块，是见证人方式出块，计算上一组出块奖励。
 	if chain.witnessChain.beforeGroup != nil {
@@ -217,7 +240,6 @@ func BuildBlockForPOW() {
 	if err != nil {
 		return
 	}
-	lastBlock := chain.GetLastBlock()
 
 	//开始生成块
 	bh := BlockHead{

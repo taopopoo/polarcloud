@@ -1,8 +1,8 @@
 package mining
 
 import (
+	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"polarcloud/core/utils"
@@ -64,11 +64,11 @@ func (this *BlockHead) BuildMerkleRoot() {
 	检查区块头合法性
 */
 func (this *BlockHead) Check() bool {
-	old := hex.EncodeToString(this.Hash)
+	old := this.Hash
 	//	fmt.Println("检查区块头前", old)
 	this.BuildHash()
 	//	fmt.Println("检查区块头后", hex.EncodeToString(this.Hash))
-	if old == hex.EncodeToString(this.Hash) {
+	if bytes.Equal(old, this.Hash) {
 		return true
 	}
 	return false
@@ -110,7 +110,7 @@ func (this *BlockHead) BuildHash() {
 	}
 	delete(m, BlockHead_Hash)
 	delete(m, BlockHead_Nextblockhash)
-	delete(m, BlockHead_Sign)
+	//	delete(m, BlockHead_Sign)
 	bs, err := json.Marshal(m)
 	if err != nil {
 		return

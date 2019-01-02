@@ -150,6 +150,9 @@ func handleValidateAddress(rj *rpcJson) (res []byte, err error) {
 	return
 }
 
+/*
+	转账
+*/
 func sendToAddress(rj *rpcJson) (res []byte, err error) {
 	addrItr, ok := rj.Get("address")
 	if !ok {
@@ -157,6 +160,7 @@ func sendToAddress(rj *rpcJson) (res []byte, err error) {
 		return
 	}
 	addr := addrItr.(string)
+
 	amountItr, ok := rj.Get("amount")
 	if !ok {
 		res, err = errcode(5002, "amount")
@@ -164,13 +168,27 @@ func sendToAddress(rj *rpcJson) (res []byte, err error) {
 	}
 	amount := uint64(amountItr.(float64))
 
+	gasItr, ok := rj.Get("gas")
+	if !ok {
+		res, err = errcode(5002, "gas")
+		return
+	}
+	gas := uint64(gasItr.(float64))
+
+	pwdItr, ok := rj.Get("pwd")
+	if !ok {
+		res, err = errcode(5002, "pwd")
+		return
+	}
+	pwd := pwdItr.(string)
+
 	commentItr, ok := rj.Get("comment")
 	if !ok {
 		res, err = errcode(5002, "comment")
 		return
 	}
 	comment := commentItr.(string)
-	fmt.Println("转账到地址", addr, amount, comment)
+	fmt.Println("转账到地址", addr, amount, pwd, comment)
 
 	dst, e := utils.FromB58String(addr)
 	if err != nil {
@@ -179,7 +197,7 @@ func sendToAddress(rj *rpcJson) (res []byte, err error) {
 		return
 	}
 
-	txpay, e := mining.SendToAddress(&dst, amount, comment)
+	txpay, e := mining.SendToAddress(&dst, amount, gas, pwd, comment)
 	if err != nil {
 		err = e
 		res, _ = errcode(5003, "error")
@@ -206,7 +224,22 @@ func depositIn(rj *rpcJson) (res []byte, err error) {
 		return
 	}
 	amount := uint64(amountItr.(float64))
-	err = mining.DepositIn(amount)
+
+	gasItr, ok := rj.Get("gas")
+	if !ok {
+		res, err = errcode(5002, "gas")
+		return
+	}
+	gas := uint64(gasItr.(float64))
+
+	pwdItr, ok := rj.Get("pwd")
+	if !ok {
+		res, err = errcode(5002, "pwd")
+		return
+	}
+	pwd := pwdItr.(string)
+
+	err = mining.DepositIn(amount, gas, pwd)
 	if err == nil {
 		//		res = []byte("success")
 		res, err = tojson("success")
@@ -225,7 +258,33 @@ func depositIn(rj *rpcJson) (res []byte, err error) {
 //    }
 //}
 func depositOut(rj *rpcJson) (res []byte, err error) {
-	err = mining.DepositOut()
+	addr := ""
+	addrItr, ok := rj.Get("address")
+	if ok {
+		addr = addrItr.(string)
+	}
+
+	amount := uint64(0)
+	amountItr, ok := rj.Get("amount")
+	if ok {
+		amount = uint64(amountItr.(float64))
+	}
+
+	gasItr, ok := rj.Get("gas")
+	if !ok {
+		res, err = errcode(5002, "gas")
+		return
+	}
+	gas := uint64(gasItr.(float64))
+
+	pwdItr, ok := rj.Get("pwd")
+	if !ok {
+		res, err = errcode(5002, "pwd")
+		return
+	}
+	pwd := pwdItr.(string)
+
+	err = mining.DepositOut(addr, amount, gas, pwd)
 	if err == nil {
 		//		res = []byte("success")
 		res, err = tojson("success")
@@ -244,12 +303,32 @@ func depositOut(rj *rpcJson) (res []byte, err error) {
 //    }
 //}
 func voteIn(rj *rpcJson) (res []byte, err error) {
+	addr := ""
+	addrItr, ok := rj.Get("address")
+	if ok {
+		addr = addrItr.(string)
+	}
+
 	amountItr, ok := rj.Get("amount")
 	if !ok {
 		res, err = errcode(5002, "amount")
 		return
 	}
 	amount := uint64(amountItr.(float64))
+
+	gasItr, ok := rj.Get("gas")
+	if !ok {
+		res, err = errcode(5002, "gas")
+		return
+	}
+	gas := uint64(gasItr.(float64))
+
+	pwdItr, ok := rj.Get("pwd")
+	if !ok {
+		res, err = errcode(5002, "pwd")
+		return
+	}
+	pwd := pwdItr.(string)
 
 	witnessAddrItr, ok := rj.Get("witness")
 	if !ok {
@@ -263,7 +342,7 @@ func voteIn(rj *rpcJson) (res []byte, err error) {
 		return
 	}
 
-	err = mining.VoteIn(&witnessAddr, amount)
+	err = mining.VoteIn(&witnessAddr, addr, amount, gas, pwd)
 	if err == nil {
 		res, err = tojson("success")
 	}
@@ -281,12 +360,32 @@ func voteIn(rj *rpcJson) (res []byte, err error) {
 //    }
 //}
 func voteOut(rj *rpcJson) (res []byte, err error) {
+	addr := ""
+	addrItr, ok := rj.Get("address")
+	if ok {
+		addr = addrItr.(string)
+	}
+
 	amountItr, ok := rj.Get("amount")
 	if !ok {
 		res, err = errcode(5002, "amount")
 		return
 	}
 	amount := uint64(amountItr.(float64))
+
+	gasItr, ok := rj.Get("gas")
+	if !ok {
+		res, err = errcode(5002, "gas")
+		return
+	}
+	gas := uint64(gasItr.(float64))
+
+	pwdItr, ok := rj.Get("pwd")
+	if !ok {
+		res, err = errcode(5002, "pwd")
+		return
+	}
+	pwd := pwdItr.(string)
 
 	witnessAddrItr, ok := rj.Get("witness")
 	if !ok {
@@ -300,7 +399,7 @@ func voteOut(rj *rpcJson) (res []byte, err error) {
 		return
 	}
 
-	err = mining.VoteOut(&witnessAddr, amount)
+	err = mining.VoteOut(&witnessAddr, addr, amount, gas, pwd)
 	if err == nil {
 		res, err = tojson("success")
 	}

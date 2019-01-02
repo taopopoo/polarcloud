@@ -4,12 +4,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strconv"
-	"sync"
-	"time"
 	"polarcloud/config"
 	"polarcloud/core/engine"
 	"polarcloud/core/utils"
+	"strconv"
+	"sync"
+	"time"
 )
 
 var (
@@ -68,7 +68,7 @@ func BuildIdinfo() (*IdInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	idinfo.Sign = hex.EncodeToString(*signText)
+	idinfo.Sign = *signText
 	//	fmt.Println("生成的签名:", signText)
 
 	//	fmt.Println("是否验证通过", CheckIdInfo(*idinfo))

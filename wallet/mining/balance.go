@@ -171,10 +171,21 @@ func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 			case config.Wallet_tx_type_mining:
 			case config.Wallet_tx_type_deposit_in:
 			case config.Wallet_tx_type_deposit_out:
-
-				if this.depositin != nil {
-					if bytes.Equal(*addr, *this.depositin.Addr) {
-						this.depositin = nil
+				bs, err := db.Find(vin.Txid)
+				if err != nil {
+					//TODO 不能找到上一个交易，程序出错退出
+					continue
+				}
+				depositinTxItr, err := ParseTxBase(bs)
+				if err != nil {
+					//TODO 不能解析上一个交易，程序出错退出
+					continue
+				}
+				if depositinTxItr.Class() == config.Wallet_tx_type_deposit_in {
+					if this.depositin != nil {
+						if bytes.Equal(*addr, *this.depositin.Addr) {
+							this.depositin = nil
+						}
 					}
 				}
 			case config.Wallet_tx_type_pay:
@@ -191,14 +202,15 @@ func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 					//TODO 不能解析上一个交易，程序出错退出
 					continue
 				}
-				votein := voteinTxItr.(*Tx_vote_in)
-				b, ok := this.votein.Load(votein.Vote.Address.B58String())
-				if ok {
-					ba := b.(*Balance)
-					ba.Txs.Delete(hex.EncodeToString(*voteinTxItr.GetHash()))
-					this.votein.Store(votein.Vote.Address.B58String(), ba)
+				if voteinTxItr.Class() == config.Wallet_tx_type_vote_in {
+					votein := voteinTxItr.(*Tx_vote_in)
+					b, ok := this.votein.Load(votein.Vote.B58String())
+					if ok {
+						ba := b.(*Balance)
+						ba.Txs.Delete(hex.EncodeToString(*voteinTxItr.GetHash()))
+						this.votein.Store(votein.Vote.B58String(), ba)
+					}
 				}
-
 			}
 		}
 		//生成新的UTXO收益，保存到列表中
@@ -228,7 +240,7 @@ func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 			case config.Wallet_tx_type_vote_in:
 				if voutIndex == 0 {
 					voteIn := txItr.(*Tx_vote_in)
-					witnessAddr := voteIn.Vote.Address.B58String()
+					witnessAddr := voteIn.Vote.B58String()
 					v, ok := this.votein.Load(witnessAddr)
 					var ba *Balance
 					if ok {
@@ -279,7 +291,7 @@ func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 /*
 	缴纳押金，并广播
 */
-func (this *BalanceManager) DepositIn(amount uint64) error {
+func (this *BalanceManager) DepositIn(amount, gas uint64, pwd string) error {
 	key, err := keystore.GetCoinbase()
 	if err != nil {
 		return err
@@ -293,10 +305,7 @@ func (this *BalanceManager) DepositIn(amount uint64) error {
 		return errors.New("不能重复缴纳押金")
 	}
 
-	//	if this.witnessBackup.haveWitness(key.Hash) {
-	//	}
-
-	deposiIn := CreateTxDepositIn(key, amount)
+	deposiIn := CreateTxDepositIn(key, amount, gas, pwd)
 	if deposiIn == nil {
 		//		fmt.Println("33333333333333 22222")
 		return errors.New("交押金失败")
@@ -332,16 +341,16 @@ func (this *BalanceManager) DepositIn(amount uint64) error {
 /*
 	退还押金，并广播
 */
-func (this *BalanceManager) DepositOut() error {
-	key, err := keystore.GetCoinbase()
-	if err != nil {
-		return err
-	}
+func (this *BalanceManager) DepositOut(addr string, amount, gas uint64, pwd string) error {
+	//	key, err := keystore.GetCoinbase()
+	//	if err != nil {
+	//		return err
+	//	}
 	if this.depositin == nil {
 		return errors.New("自己没有交押金")
 	}
 
-	deposiOut := CreateTxDepositOut(key)
+	deposiOut := CreateTxDepositOut(addr, amount, gas, pwd)
 	if deposiOut == nil {
 		//		fmt.Println("33333333333333 22222")
 		return errors.New("交押金失败")
@@ -376,13 +385,9 @@ func (this *BalanceManager) DepositOut() error {
 /*
 	投票押金，并广播
 */
-func (this *BalanceManager) VoteIn(witnessAddr *utils.Multihash, amount uint64) error {
-	key, err := keystore.GetCoinbase()
-	if err != nil {
-		return err
-	}
+func (this *BalanceManager) VoteIn(witnessAddr *utils.Multihash, addr string, amount, gas uint64, pwd string) error {
 
-	voetIn := CreateTxVoteIn(key, amount, witnessAddr)
+	voetIn := CreateTxVoteIn(witnessAddr, addr, amount, gas, pwd)
 	if voetIn == nil {
 		//		fmt.Println("33333333333333 22222")
 		return errors.New("交押金失败")
@@ -418,18 +423,14 @@ func (this *BalanceManager) VoteIn(witnessAddr *utils.Multihash, amount uint64) 
 /*
 	退还投票押金，并广播
 */
-func (this *BalanceManager) VoteOut(witnessAddr *utils.Multihash, amount uint64) error {
-	key, err := keystore.GetCoinbase()
-	if err != nil {
-		return err
-	}
+func (this *BalanceManager) VoteOut(witnessAddr *utils.Multihash, addr string, amount, gas uint64, pwd string) error {
 
 	balance := this.GetVoteIn(witnessAddr)
 	if balance == nil {
 		return errors.New("没有对这个见证人投票")
 	}
 
-	deposiOut := CreateTxVoteOut(key, amount, witnessAddr)
+	deposiOut := CreateTxVoteOut(witnessAddr, addr, amount, gas, pwd)
 	if deposiOut == nil {
 		//		fmt.Println("33333333333333 22222")
 		return errors.New("交押金失败")

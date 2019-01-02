@@ -2,7 +2,7 @@ package utils
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
+	//	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -62,7 +62,7 @@ func SignCompact(pri *ecdsa.PrivateKey, hash []byte) (*[]byte, error) {
 }
 
 //验证s256签名
-func VerifyS256(message, pubKeyBytes []byte, sign string) bool {
+func VerifyS256(message, pubKeyBytes []byte, sign []byte) bool {
 	pubKey, err := btcec.ParsePubKey(pubKeyBytes, btcec.S256())
 	if err != nil {
 		fmt.Println("pub:", err)
@@ -70,13 +70,13 @@ func VerifyS256(message, pubKeyBytes []byte, sign string) bool {
 	}
 
 	// Decode hex-encoded serialized signature.
-	sigBytes, err := hex.DecodeString(sign)
+	//	sigBytes, err := hex.DecodeString(sign)
 
-	if err != nil {
-		fmt.Println("sign:", err)
-		return false
-	}
-	signature, err := btcec.ParseSignature(sigBytes, btcec.S256())
+	//	if err != nil {
+	//		fmt.Println("sign:", err)
+	//		return false
+	//	}
+	signature, err := btcec.ParseSignature(sign, btcec.S256())
 	if err != nil {
 		fmt.Println("parse:", err)
 		return false

@@ -1,6 +1,7 @@
 package mining
 
 import (
+	"encoding/hex"
 	"fmt"
 	"polarcloud/config"
 	"polarcloud/wallet/db"
@@ -13,57 +14,70 @@ import (
 	@return    start    起始块高度
 	@return    end      数据库中最高块高度
 */
-//func CheckBlockDB() (start, end uint64) {
-//	defer func() {
-//		atomic.StoreUint64(&forks.StartingBlock, start)
-//		atomic.StoreUint64(&forks.CurrentBlock, end)
-//	}()
+func CheckBlockDB() bool {
 
-//	headid, err := db.Find(config.Key_block_start)
-//	if err != nil {
-//		//认为这是一个空数据库
-//		fmt.Println("这是一个空数据库")
-//		return
-//	}
+	headid, err := db.Find(config.Key_block_start)
+	if err != nil {
+		//认为这是一个空数据库
+		fmt.Println("这是一个空数据库")
+		return true
+	}
 
-//	head, err := db.Find(*headid)
-//	if err != nil {
-//		fmt.Println("1111", err)
-//		return
-//	}
+	bs, err := db.Find(*headid)
+	if err != nil {
+		fmt.Println("1111", err)
+		return false
+	}
 
-//	hB, err := ParseBlockHead(head)
-//	if err != nil {
-//		fmt.Println("2222", err)
-//		return
-//	}
-//	start = hB.Height
-//	end = hB.Height
+	hB, err := ParseBlockHead(bs)
+	if err != nil {
+		fmt.Println("2222", err)
+		return false
+	}
 
-//	for {
-//		if hB.Nextblockhash == nil {
-//			break
-//		}
-//		head, err = db.Find(hB.Nextblockhash[0])
-//		if err != nil {
-//			//数据库中的区块头查找错误，需要重新下载区块
-//			break
-//		}
-//		hB, err = ParseBlockHead(head)
-//		if err != nil {
-//			//数据库中的区块头解析错误，需要重新下载区块
-//			break
-//		}
-//		if !hB.Check() {
-//			break
-//		}
-//		start = hB.Height
-//		end = hB.Height
-
-//	}
-
-//	return
-//}
+	for {
+		if hB.Nextblockhash == nil {
+			fmt.Println("没有下一个块了")
+			break
+		}
+		fmt.Println("开始验证下一个区块", hB.Height+1)
+		bs, err = db.Find(hB.Nextblockhash[0])
+		if err != nil {
+			//数据库中的区块头查找错误，需要重新下载区块
+			fmt.Println("区块头查找错误", hB.Height+1, hex.EncodeToString(*bs))
+			return false
+		}
+		hB, err = ParseBlockHead(bs)
+		if err != nil {
+			//数据库中的区块头解析错误，需要重新下载区块
+			fmt.Println("本区块解析错误", hB.Height)
+			return false
+		}
+		if !hB.Check() {
+			fmt.Println("本区块不合法", hB.Height)
+			return false
+		}
+		//检查交易是否正确
+		for _, one := range hB.Tx {
+			bs, err = db.Find(one)
+			if err != nil {
+				//数据库中的交易查找错误，需要重新下载
+				fmt.Println("查找交易错误", hB.Height, hex.EncodeToString(*bs))
+				return false
+			}
+			txItr, err := ParseTxBase(bs)
+			if err != nil {
+				fmt.Println("解析交易错误", hB.Height, hex.EncodeToString(*bs))
+				return false
+			}
+			if !txItr.Check() {
+				fmt.Println("验证交易失败，交易不合法")
+				return false
+			}
+		}
+	}
+	return true
+}
 
 /*
 	从数据库中加载区块

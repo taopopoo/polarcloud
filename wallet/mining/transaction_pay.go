@@ -1,15 +1,12 @@
 package mining
 
 import (
+	"bytes"
 	"encoding/binary"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"polarcloud/config"
 	"polarcloud/core/utils"
-	"polarcloud/wallet/db"
 	"polarcloud/wallet/keystore"
-	"time"
 )
 
 /*
@@ -23,17 +20,10 @@ type Tx_Pay struct {
 	构建hash值得到交易id
 */
 func (this *Tx_Pay) BuildHash() {
-	m, err := this.TxBase.BuildMap()
-	if err != nil {
-		return
-	}
-	bs, err := json.Marshal(m)
-	if err != nil {
-		return
-	}
+	bs := this.Serialize()
 	id := make([]byte, 8)
 	binary.PutUvarint(id, config.Wallet_tx_type_pay)
-	this.Hash = append(id, utils.Hash_SHA3_256(bs)...)
+	this.Hash = append(id, utils.Hash_SHA3_256(*bs)...)
 }
 
 /*
@@ -41,9 +31,18 @@ func (this *Tx_Pay) BuildHash() {
 	1.本交易输入对应UTXO输出
 	2.输入额度=输出额度+gas额度
 */
-func (this *Tx_Pay) Check() bool {
-	return true
-}
+//func (this *Tx_Pay) Check() bool {
+//	return true
+//}
+
+/*
+	对本交易签名，用于支付
+*/
+//func (this *Tx_Pay) SignForPay(prk *ecdsa.PrivateKey) (*[]byte, error) {
+//	bs := this.SignSerialize()
+//	sign, err := utils.Sign(prk, *bs)
+//	return sign, err
+//}
 
 ///*
 //	一笔交易
@@ -71,22 +70,15 @@ func (this *Tx_Pay) Check() bool {
 /*
 	创建一个转款交易
 */
-func CreateTxPay(address *utils.Multihash, amount, gas uint64, comment string) (*Tx_Pay, error) {
+func CreateTxPay(address *utils.Multihash, amount, gas uint64, pwd, comment string) (*Tx_Pay, error) {
 	chain := forks.GetLongChain()
 
-	//优先从非矿工账户扣款
-	coinBaseKey, err := keystore.GetCoinbase()
-	if err != nil {
-		return nil, err
-	}
 	//查找余额
 	vins := make([]Vin, 0)
 	total := uint64(0)
 	keys := keystore.GetAddr()
 	for _, one := range keys {
-		if one.Hash.B58String() == coinBaseKey.Hash.B58String() {
-			continue
-		}
+
 		bas, err := chain.balance.FindBalance(one.Hash)
 		if err != nil {
 			return nil, err
@@ -96,38 +88,30 @@ func CreateTxPay(address *utils.Multihash, amount, gas uint64, comment string) (
 			two.Txs.Range(func(k, v interface{}) bool {
 				item := v.(*TxItem)
 
-				bs, err := db.Find(item.Txid)
-				if err != nil {
-					return false
-				}
-				txItr, err := ParseTxBase(bs)
-				if err != nil {
-					return false
-				}
+				//				bs, err := db.Find(item.Txid)
+				//				if err != nil {
+				//					return false
+				//				}
+				//				txItr, err := ParseTxBase(bs)
+				//				if err != nil {
+				//					return false
+				//				}
 
-				var sign *[]byte
-				for _, item := range *txItr.GetVout() {
-					if item.Address.B58String() == one.Hash.B58String() {
-						bs, err := item.CheckJson()
-						if err != nil {
-							return false
-						}
-						sign, err = one.Sign(*bs, "123456")
-						if err != nil {
-							return false
-						}
-						break
-					}
-				}
-				if sign == nil {
-					return false
-				}
+				//				prk, err := one.GetPriKey(pwd)
+				//				if err != nil {
+				//					return false
+				//				}
+				//				sign := txItr.GetSign(prk, item.OutIndex)
+
+				//				if sign == nil {
+				//					return false
+				//				}
 
 				vin := Vin{
 					Txid: item.Txid,       //UTXO 前一个交易的id
 					Vout: item.OutIndex,   //一个输出索引（vout），用于标识来自该交易的哪个UTXO被引用（第一个为零）
 					Puk:  one.GetPubKey(), //公钥
-					Sign: *sign,           //签名
+					//					Sign: *sign,           //签名
 				}
 				vins = append(vins, vin)
 
@@ -136,62 +120,6 @@ func CreateTxPay(address *utils.Multihash, amount, gas uint64, comment string) (
 					return false
 				}
 
-				return true
-			})
-			if total >= amount+gas {
-				break
-			}
-		}
-	}
-	//若资金还不够，则花费矿工账户的资金
-	if total < amount+gas {
-		bas, err := chain.balance.FindBalance(coinBaseKey.Hash)
-		if err != nil {
-			return nil, err
-		}
-		for _, two := range bas {
-
-			two.Txs.Range(func(k, v interface{}) bool {
-				item := v.(*TxItem)
-				bs, err := db.Find(item.Txid)
-				if err != nil {
-					return false
-				}
-				txItr, err := ParseTxBase(bs)
-				if err != nil {
-					return false
-				}
-
-				var sign *[]byte
-				for _, item := range *txItr.GetVout() {
-					if item.Address.B58String() == coinBaseKey.Hash.B58String() {
-						bs, err := item.CheckJson()
-						if err != nil {
-							return false
-						}
-						sign, err = coinBaseKey.Sign(*bs, "123456")
-						if err != nil {
-							return false
-						}
-						break
-					}
-				}
-				if sign == nil {
-					return false
-				}
-
-				vin := Vin{
-					Txid: item.Txid,               //UTXO 前一个交易的id
-					Vout: item.OutIndex,           //一个输出索引（vout），用于标识来自该交易的哪个UTXO被引用（第一个为零）
-					Puk:  coinBaseKey.GetPubKey(), //公钥
-					Sign: *sign,                   //签名
-				}
-				vins = append(vins, vin)
-
-				total = total + item.Value
-				if total >= amount+gas {
-					return false
-				}
 				return true
 			})
 			if total >= amount+gas {
@@ -216,43 +144,59 @@ func CreateTxPay(address *utils.Multihash, amount, gas uint64, comment string) (
 	//TODO 将剩余款项转入新的地址，保证资金安全
 	if total > amount+gas {
 		vout := Vout{
-			Value:   total - amount - gas, //输出金额 = 实际金额 * 100000000
-			Address: *coinBaseKey.Hash,    //钱包地址
+			Value:   total - amount - gas,        //输出金额 = 实际金额 * 100000000
+			Address: *keystore.GetAddr()[0].Hash, //钱包地址
 		}
 		vouts = append(vouts, vout)
 	}
 
-	bs, err := json.Marshal(vouts)
-	if err != nil {
-		return nil, err
-	}
+	//	bs, err := json.Marshal(vouts)
+	//	if err != nil {
+	//		return nil, err
+	//	}
 
-	for i, one := range vins {
-		for _, key := range keys {
-			if hex.EncodeToString(key.GetPubKey()) == hex.EncodeToString(one.Puk) {
-				sign, err := key.Sign(bs, "123456")
-				if err != nil {
-					return nil, err
-				}
-				vins[i].VoutSign = *sign
-				break
-			}
-		}
-	}
+	//	for i, one := range vins {
+	//		for _, key := range keys {
+	//			//hex.EncodeToString(key.GetPubKey()) == hex.EncodeToString(one.Puk)
+	//			if bytes.Equal(key.GetPubKey(), one.Puk) {
+	//				sign, err := key.Sign(bs, pwd)
+	//				if err != nil {
+	//					return nil, err
+	//				}
+	//				vins[i].VoutSign = *sign
+	//				break
+	//			}
+	//		}
+	//	}
 
 	//没有输出
 	base := TxBase{
-		Type:       config.Wallet_tx_type_pay, //交易类型
-		Vin_total:  uint64(len(vins)),         //输入交易数量
-		Vin:        vins,                      //交易输入
-		Vout_total: uint64(len(vouts)),        //输出交易数量
-		Vout:       vouts,                     //交易输出
-		Gas:        gas,                       //交易手续费
-		CreateTime: time.Now().Unix(),         //创建时间
-		//	BlockHash  []byte `json:"blockhash"`  //自己被打包到的块hash
+		Type:       config.Wallet_tx_type_pay,         //交易类型
+		Vin_total:  uint64(len(vins)),                 //输入交易数量
+		Vin:        vins,                              //交易输入
+		Vout_total: uint64(len(vouts)),                //输出交易数量
+		Vout:       vouts,                             //交易输出
+		Gas:        gas,                               //交易手续费
+		LockHeight: chain.GetLastBlock().Height + 100, //锁定高度
+		//		CreateTime: time.Now().Unix(),         //创建时间
 	}
 	pay := Tx_Pay{
 		TxBase: base,
+	}
+
+	//给输出签名，防篡改
+	for i, one := range pay.Vin {
+		for _, key := range keystore.GetAddr() {
+			if bytes.Equal(key.GetPubKey(), one.Puk) {
+				prk, err := key.GetPriKey(pwd)
+				if err != nil {
+					return nil, err
+				}
+				sign := pay.GetSign(prk, one.Txid, one.Vout, uint64(i))
+				//				sign := pay.GetVoutsSign(prk, uint64(i))
+				pay.Vin[i].Sign = *sign
+			}
+		}
 	}
 	pay.BuildHash()
 	return &pay, nil

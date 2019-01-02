@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	//"encoding/pem"
 	//"fmt"
-	"time"
 	"polarcloud/config"
 	"polarcloud/core/utils"
+	"time"
 )
 
 /*
@@ -58,7 +58,7 @@ func ParseNode(bs []byte) (*Node, error) {
 type IdInfo struct {
 	Id    *utils.Multihash `json:"id"`    //id，网络地址，临时地址，由updatetime字符串产生MD5值
 	Puk   []byte           `json:"puk"`   //公钥
-	Sign  string           `json:"sign"`  //签名
+	Sign  []byte           `json:"sign"`  //签名
 	Ctype string           `json:"ctype"` //签名方法 如ecdsa256 ecdsa512
 }
 

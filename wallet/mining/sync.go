@@ -70,6 +70,7 @@ func saveBlockHead(bhvo *BlockHeadVO) {
 	for i, one := range bhvo.Txs {
 		//			fmt.Println("改变前", hex.EncodeToString(*bhvo.Txs[i].GetHash()))
 		bhvo.Txs[i].BuildHash()
+		bhvo.Txs[i].SetBlockHash(bhvo.BH.Hash)
 		//			fmt.Println("改变后", hex.EncodeToString(*bhvo.Txs[i].GetHash()))
 		bs, err := bhvo.Txs[i].Json()
 		if err != nil {
@@ -365,6 +366,7 @@ func syncBlockForDBAndNeighbor(bhash *[]byte) (*BlockHead, error) {
 	//保存区块中的交易
 	for i, one := range bhvo.Txs {
 		bhvo.Txs[i].BuildHash()
+		bhvo.Txs[i].SetBlockHash(*bhash)
 		bs, err := bhvo.Txs[i].Json()
 		if err != nil {
 			//TODO 严谨的错误处理
@@ -450,6 +452,7 @@ func syncBlockFlashDB(bhash *[]byte) *BlockHead {
 	}
 	db.Save(*bhash, bs)
 	for _, one := range bhvo.Txs {
+		one.SetBlockHash(*bhash)
 		bs, err := one.Json()
 		if err != nil {
 			return nil

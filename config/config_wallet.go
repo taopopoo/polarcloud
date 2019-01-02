@@ -18,15 +18,20 @@ const (
 )
 
 const (
-	Wallet_tx_type_start       = 0   //
-	Wallet_tx_type_mining      = 0   //挖矿所得
-	Wallet_tx_type_deposit_in  = 1   //备用见证人押金输入，余额锁定
-	Wallet_tx_type_deposit_out = 2   //备用见证人押金输出，余额解锁
-	Wallet_tx_type_pay         = 3   //普通支付
-	Wallet_tx_type_account     = 4   //申请账户
-	Wallet_tx_type_vote_in     = 5   //参与见证人投票输入，余额锁定
-	Wallet_tx_type_vote_out    = 6   //参与见证人投票输出，余额解锁
-	Wallet_tx_type_end         = 100 //
+	Wallet_tx_type_start             = 0 //
+	Wallet_tx_type_mining            = 0 //挖矿所得
+	Wallet_tx_type_deposit_in        = 1 //备用见证人押金输入，余额锁定
+	Wallet_tx_type_deposit_out       = 2 //备用见证人押金输出，余额解锁
+	Wallet_tx_type_pay               = 3 //普通支付
+	Wallet_tx_type_account           = 4 //申请账户
+	Wallet_tx_type_vote_in           = 5 //参与见证人投票输入，余额锁定
+	Wallet_tx_type_vote_out          = 6 //参与见证人投票输出，余额解锁
+	Wallet_tx_type_deposit_out_force = 7 //见证人3次未出块，强制退还押金
+
+	Wallet_tx_type_register_store   = 20 //注册成为存储服务提供方
+	Wallet_tx_type_unregister_store = 21 //注册成为存储服务提供方
+
+	Wallet_tx_type_end = 100 //
 )
 
 const (

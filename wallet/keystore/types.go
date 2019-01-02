@@ -2,6 +2,7 @@ package keystore
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/md5"
 	"errors"
 	"polarcloud/core/utils"
@@ -52,7 +53,7 @@ func (addr *Address) GetPubKey() []byte {
 }
 
 //根据地址获取私钥
-func (addr *Address) GetPriKey(password string) ([]byte, error) {
+func (addr *Address) GetPriKey(password string) (*ecdsa.PrivateKey, error) {
 	pass := md5.Sum([]byte(password))
 	pri, err := Decrypt(addr.PriKey, pass[:])
 	if err != nil {
@@ -63,7 +64,7 @@ func (addr *Address) GetPriKey(password string) ([]byte, error) {
 	if !bytes.Equal(addr.Pubkey, pub) {
 		return nil, errors.New("password is wrong")
 	}
-	return pri, nil
+	return prikey, nil
 }
 
 //签名
@@ -72,8 +73,8 @@ func (addr *Address) Sign(text []byte, password string) (*[]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	prikey, _ := utils.ParsePrikey(pri)
-	sign, err := utils.Sign(prikey, text)
+	//	prikey, _ := utils.ParsePrikey(pri)
+	sign, err := utils.Sign(pri, text)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func (addr *Address) Sign(text []byte, password string) (*[]byte, error) {
 }
 
 //验证签名
-func (addr *Address) Verify(text []byte, sign string) (bool, error) {
+func (addr *Address) Verify(text []byte, sign []byte) (bool, error) {
 	res, err := utils.Verify(addr.Pubkey, text, sign)
 	return res, err
 }

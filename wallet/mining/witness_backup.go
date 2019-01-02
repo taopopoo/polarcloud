@@ -54,11 +54,12 @@ func (this *WitnessBackup) addWitness(witnessAddr *utils.Multihash, score uint64
 }
 
 /*
-	添加一个见证人到投票列表
+	删除一个见证人
 */
 func (this *WitnessBackup) DelWitness(witnessAddr *utils.Multihash) {
 	this.lock.Lock()
 	//	fmt.Println("++++++删除备用见证人前", len(this.witnesses), witnessAddr.B58String())
+	//TODO 有待提高速度
 	for i, one := range this.witnesses {
 		if !bytes.Equal(*witnessAddr, *one.Addr) {
 			continue

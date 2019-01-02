@@ -335,11 +335,14 @@ func MulticastTransaction_recv(c engine.Controller, msg engine.Packet) {
 		return
 	}
 	txbase.BuildHash()
-	//验证交易
-	if !txbase.Check() {
-		//交易不合法，则不发送出去
-		fmt.Println("交易不合法，则不发送出去")
-		return
+	//判断区块是否同步完成，如果没有同步完成则不验证交易合法性
+	if GetSyncFinish() {
+		//验证交易
+		if !txbase.Check() {
+			//交易不合法，则不发送出去
+			fmt.Println("交易不合法，则不发送出去")
+			return
+		}
 	}
 
 	forks.GetLongChain().transactionManager.AddTx(txbase)

@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"polarcloud/config"
 	"polarcloud/core/utils"
-	"time"
 )
 
 /*
@@ -319,7 +318,8 @@ func (this *WitnessGroup) CountReward(txs []TxItr) *Tx_reward {
 		Type:       config.Wallet_tx_type_mining, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
 		Vout_total: uint64(len(vouts)),           //输出交易数量
 		Vout:       vouts,                        //交易输出
-		CreateTime: time.Now().Unix(),            //创建时间
+		//		LockHeight: chain.GetLastBlock().Height + 100, //锁定高度
+		//		CreateTime: time.Now().Unix(),            //创建时间
 	}
 
 	txReward := Tx_reward{

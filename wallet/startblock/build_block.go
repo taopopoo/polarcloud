@@ -44,7 +44,8 @@ func BuildFirstBlock() {
 		Type:       config.Wallet_tx_type_mining, //交易类型，默认0=挖矿所得，没有输入;1=普通转账到地址交易
 		Vout_total: 1,                            //输出交易数量
 		Vout:       vouts,                        //交易输出
-		CreateTime: time.Now().Unix(),            //创建时间
+		LockHeight: 1,                            //
+		//		CreateTime: time.Now().Unix(),            //创建时间
 	}
 	reward := mining.Tx_reward{
 		TxBase: base,
