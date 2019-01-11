@@ -47,6 +47,9 @@ const (
 	Mining_difficulty       = 20                      //出块难度，前导零个数
 	Witness_backup_min      = Mining_group_min        //备用见证人数需要满足见证人组最少数量
 	Witness_backup_max      = Mining_group_max * 1000 //备用见证人排名靠前的最多数量，之后的人依然是选举中的备用见证人。
+
+	Block_confirm = 6 //单位：组。见证人出块共识下区块安全确认数
+
 )
 
 const (

@@ -12,8 +12,8 @@ import (
 	"polarcloud/core/nodeStore"
 	"polarcloud/core/utils"
 	"polarcloud/wallet/db"
+	"polarcloud/wallet/keystore"
 	"sync"
-	"yunpan/wallet/keystore"
 )
 
 const (
@@ -35,7 +35,8 @@ type TxItr interface {
 	GetVin() *[]Vin                                                                 //
 	GetVout() *[]Vout                                                               //
 	GetGas() uint64                                                                 //
-	SetTxid(bs *[]byte, index uint64, txid *[]byte) error                           //
+	SetTxid(bs *[]byte, index uint64, txid *[]byte) error                           //这个交易输出被使用之后，需要把UTXO输出标记下
+	UnSetTxid(bs *[]byte, index uint64) error                                       //区块回滚，把之前标记为已经使用过的交易的标记去掉
 	GetVoutSignSerialize(voutIndex uint64) *[]byte                                  //获取交易输出序列化
 	GetSign(key *ecdsa.PrivateKey, txid []byte, voutIndex, vinIndex uint64) *[]byte //获取签名
 	//	GetVoutsSign(key *ecdsa.PrivateKey, vinIndex uint64) *[]byte //对输出签名，防止输出被篡改
@@ -361,17 +362,45 @@ func (this *TxBase) SetTxid(bs *[]byte, index uint64, txid *[]byte) error {
 	}
 	err = db.Save(this.Hash, &txbs)
 	return err
+}
 
-	//	this.Vout[index].Tx = *txid
-	//	bs, err := this.Json()
-	//	if err != nil {
-	//		return err
-	//	}
-	//	err = db.Save(this.Hash, bs)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	return nil
+/*
+	区块回滚，把之前标记为已经使用过的交易的标记去掉
+*/
+func (this *TxBase) UnSetTxid(bs *[]byte, index uint64) error {
+	txMap := make(map[string]interface{})
+	err := json.Unmarshal(*bs, &txMap)
+	if err != nil {
+		return err
+	}
+	v := txMap["vout"]
+	if v == nil {
+		return errors.New("解析失败")
+	}
+	vs := v.([]interface{})
+	vouts := make([]Vout, 0)
+	for _, one := range vs {
+		voutBs, err := json.Marshal(one)
+		if err != nil {
+			return err
+		}
+		vout := new(Vout)
+		err = json.Unmarshal(voutBs, vout)
+		if err != nil {
+			return err
+		}
+		vouts = append(vouts, *vout)
+	}
+
+	vouts[index].Tx = nil
+	txMap["vout"] = vouts
+
+	txbs, err := json.Marshal(txMap)
+	if err != nil {
+		return err
+	}
+	err = db.Save(this.Hash, &txbs)
+	return err
 }
 
 /*

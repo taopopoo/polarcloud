@@ -84,7 +84,8 @@ func CheckBlockDB() bool {
 	先找到内存中最高区块，从区块由低到高开始加载
 */
 func LoadBlockChain() error {
-	//	fmt.Println("----开始加载区块到内存")
+
+	fmt.Println("----开始加载区块到内存")
 	var bh *BlockHead
 	var txItrs []TxItr
 	chain := forks.GetLongChain()
@@ -101,8 +102,9 @@ func LoadBlockChain() error {
 		if err != nil {
 			return err
 		}
-		//		fmt.Println("设置起始区块高度", bh.Height)
+		fmt.Println("设置起始区块高度", bh.Height)
 		SetStartingBlock(bh.Height)
+		forks.AddBlock(bh, &txItrs)
 	} else {
 		var err error
 		headid := &chain.GetLastBlock().Id
@@ -111,7 +113,7 @@ func LoadBlockChain() error {
 			return err
 		}
 	}
-	AddBlock(bh, &txItrs)
+	//	chain.AddBlock(bh, &txItrs)
 
 	if bh.Nextblockhash == nil || len(bh.Nextblockhash) == 0 {
 		//		fmt.Println("因Nextblockhash为空退出")
@@ -132,7 +134,8 @@ func deepCycleLoadBlock(bhash *[]byte) {
 	if err != nil {
 		return
 	}
-	AddBlock(bh, &txItrs)
+	forks.AddBlock(bh, &txItrs)
+	//	chain.AddBlock(bh, &txItrs)
 	if bh.Nextblockhash == nil {
 		return
 	}

@@ -3,6 +3,8 @@ package nodeStore
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"time"
+
 	//"crypto/elliptic"
 	"crypto/sha256"
 	"encoding/binary"
@@ -10,9 +12,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"polarcloud/config"
 	"polarcloud/core/utils"
+	"strings"
 
 	"github.com/satori/go.uuid"
 )
@@ -98,6 +100,7 @@ func CreateAddr(uuid string, index int64) (*ECCKey, []byte) {
 }
 func GetAddrInfo() *ECCKey {
 	uuid := CreateUUID()
+	uuid = uuid + time.Now().Format("2006-01-02 15:04:05.999999999")
 	//不检查前导0
 	ecc, _ := CreateAddr(uuid, 0)
 	return ecc

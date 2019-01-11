@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"polarcloud/config"
 	"polarcloud/core/utils"
+	"polarcloud/wallet/db"
+	"polarcloud/wallet/keystore"
 	"sort"
 	"sync"
 )
@@ -14,10 +16,10 @@ import (
 //var witnesses = make(WitnessBackup, 0)
 
 type WitnessBackup struct {
-	chain        *Chain           //
-	lock         *sync.RWMutex    //
-	witnesses    []*BackupWitness //
-	witnessesMap *sync.Map        //key:string=备用见证人地址;value:*BackupWitness=备用见证人;
+	chain        *Chain          //
+	lock         sync.RWMutex    //
+	witnesses    []BackupWitness //
+	witnessesMap sync.Map        //key:string=备用见证人地址;value:*BackupWitness=备用见证人;
 }
 
 func (this WitnessBackup) Len() int {
@@ -33,6 +35,136 @@ func (this WitnessBackup) Swap(i, j int) {
 }
 
 /*
+	统计备用见证人和见证人投票
+*/
+func (this *WitnessBackup) CountWitness(txs *[]TxItr) {
+	//	depositTxs := make([]TxItr, 0)
+	for _, one := range *txs {
+		switch one.Class() {
+		//过滤见证人押金交易，添加见证人
+		case config.Wallet_tx_type_deposit_in:
+			//			addr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
+			//			if err != nil {
+			//				continue
+			//			}
+			//这里决定了交易输出地址才是见证人地址。
+			vout := (*one.GetVout())[0]
+			score := vout.Value
+			this.addWitness(&vout.Address, score)
+		case config.Wallet_tx_type_deposit_out:
+			for _, two := range *one.GetVin() {
+				addr, err := keystore.ParseHashByPubkey(two.Puk)
+				if err != nil {
+					continue
+				}
+				this.DelWitness(addr)
+			}
+		case config.Wallet_tx_type_vote_in:
+			//			voteAddr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
+			//			if err != nil {
+			//				continue
+			//			}
+			//这里决定了交易输出地址才是见证人地址。
+			//只有下标为0的输出才是押金。
+			vout := (*one.GetVout())[0]
+			score := vout.Value
+			votein := one.(*Tx_vote_in)
+
+			this.addVote(&votein.Vote, &vout.Address, score)
+		case config.Wallet_tx_type_vote_out:
+
+			for _, oneVin := range *one.GetVin() {
+
+				bs, err := db.Find(oneVin.Txid)
+				if err != nil {
+					//TODO 不能找到上一个交易，程序出错退出
+					continue
+				}
+				txItr, err := ParseTxBase(bs)
+				if err != nil {
+					//TODO 不能解析上一个交易，程序出错退出
+					continue
+				}
+				//因为有可能退回金额不够手续费，所以输入中加入了其他类型交易
+				if txItr.Class() != config.Wallet_tx_type_vote_in {
+					continue
+				}
+				vout := (*txItr.GetVout())[oneVin.Vout]
+				votein := txItr.(*Tx_vote_in)
+				this.DelVote(&votein.Vote, &vout.Address, vout.Value)
+			}
+
+		}
+	}
+
+}
+
+/*
+	回滚统计备用见证人和见证人投票
+*/
+func (this *WitnessBackup) RollbackCountWitness(txs *[]TxItr) {
+	//	depositTxs := make([]TxItr, 0)
+	for _, one := range *txs {
+		switch one.Class() {
+		//过滤见证人押金交易，添加见证人
+		case config.Wallet_tx_type_deposit_in:
+			//			addr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
+			//			if err != nil {
+			//				continue
+			//			}
+			//这里决定了交易输出地址才是见证人地址。
+			vout := (*one.GetVout())[0]
+			score := vout.Value
+			this.addWitness(&vout.Address, score)
+		case config.Wallet_tx_type_deposit_out:
+			for _, two := range *one.GetVin() {
+				addr, err := keystore.ParseHashByPubkey(two.Puk)
+				if err != nil {
+					continue
+				}
+				this.DelWitness(addr)
+			}
+		case config.Wallet_tx_type_vote_in:
+			//			voteAddr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
+			//			if err != nil {
+			//				continue
+			//			}
+			//这里决定了交易输出地址才是见证人地址。
+			//只有下标为0的输出才是押金。
+			vout := (*one.GetVout())[0]
+			score := vout.Value
+			votein := one.(*Tx_vote_in)
+
+			this.addVote(&votein.Vote, &vout.Address, score)
+		case config.Wallet_tx_type_vote_out:
+
+			for _, oneVin := range *one.GetVin() {
+
+				bs, err := db.Find(oneVin.Txid)
+				if err != nil {
+					//TODO 不能找到上一个交易，程序出错退出
+					continue
+				}
+				txItr, err := ParseTxBase(bs)
+				if err != nil {
+					//TODO 不能解析上一个交易，程序出错退出
+					continue
+				}
+				//因为有可能退回金额不够手续费，所以输入中加入了其他类型交易
+				if txItr.Class() != config.Wallet_tx_type_vote_in {
+					continue
+				}
+				vout := (*txItr.GetVout())[oneVin.Vout]
+				votein := txItr.(*Tx_vote_in)
+				this.DelVote(&votein.Vote, &vout.Address, vout.Value)
+			}
+
+		}
+	}
+
+}
+
+/*
 	添加一个见证人到投票列表
 */
 func (this *WitnessBackup) addWitness(witnessAddr *utils.Multihash, score uint64) {
@@ -42,7 +174,7 @@ func (this *WitnessBackup) addWitness(witnessAddr *utils.Multihash, score uint64
 		fmt.Println("见证人已经存在")
 		return
 	}
-	witness := &BackupWitness{
+	witness := BackupWitness{
 		Addr:  witnessAddr,   //见证人地址
 		Score: score,         //押金
 		Vote:  new(sync.Map), //投票押金
@@ -228,9 +360,9 @@ func (this *WitnessBackup) PrintWitnessBackup() {
 func NewWitnessBackup(chain *Chain) *WitnessBackup {
 	wb := WitnessBackup{
 		chain:        chain, //
-		lock:         new(sync.RWMutex),
-		witnesses:    make([]*BackupWitness, 0),
-		witnessesMap: new(sync.Map),
+		lock:         *new(sync.RWMutex),
+		witnesses:    make([]BackupWitness, 0),
+		witnessesMap: *new(sync.Map),
 	}
 	return &wb
 }

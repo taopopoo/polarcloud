@@ -1,13 +1,11 @@
 package mining
 
 import (
-	"encoding/hex"
-	"fmt"
 	"polarcloud/config"
 	"polarcloud/core/utils"
 	"polarcloud/wallet/db"
-	"polarcloud/wallet/keystore"
 	"sync/atomic"
+	//	"polarcloud/wallet/keystore"
 )
 
 /*
@@ -47,9 +45,22 @@ func NewChain(block *Block) *Chain {
 	return chain
 }
 
+/*
+	克隆一个链
+*/
+//func (this *Chain) Clone() *Chain {
+//Chain{
+//	witnessBackup : this.witnessBackup ,     *WitnessBackup      //备用见证人
+//	witnessChain       *WitnessChain       //见证人组链
+//	lastBlock          *Block              //最新块
+//	balance            *BalanceManager     //
+//	transactionManager *TransactionManager //交易管理器
+//}
+//}
+
 type Group struct {
 	PreGroup  *Group   //前置组
-	NextGroup *Group   //下一个组
+	NextGroup []*Group //下一个组，有分叉，下标为0的是最长链
 	Height    uint64   //组高度
 	Blocks    []*Block //组中的区块
 }
@@ -81,88 +92,54 @@ func (this *Block) Load() (*BlockHead, error) {
 }
 
 /*
+	加载本区块的所有交易
+*/
+func (this *Block) LoadTxs() (*BlockHead, *[]TxItr, error) {
+	bh, err := this.Load()
+	if err != nil {
+		return nil, nil, err
+	}
+	txs := make([]TxItr, 0)
+	for _, one := range bh.Tx {
+		bs, err := db.Find(one)
+		if err != nil {
+			return nil, nil, err
+		}
+		txItr, err := ParseTxBase(bs)
+		if err != nil {
+			return nil, nil, err
+		}
+		txs = append(txs, txItr)
+	}
+	return bh, &txs, nil
+}
+
+/*
+	修改本区块的下一个区块中最长区块下标为0
+*/
+func (this *Block) UpdateNextIndex(bhash []byte) error {
+
+	return nil
+}
+
+/*
 	添加一个区块
 	只能连续添加区块高度更高的区块
 */
-func AddBlock(bh *BlockHead, txs *[]TxItr) bool {
-
-	chain := forks.AddBlock(bh)
-	if chain == nil {
-		//		fmt.Println("111111111111添加一个区块不连续")
-		//1.区块不连续.
-		//2.产生了分叉.
-		//3.本节点内存不同步.
-		return false
-	}
-	fmt.Println("添加一个区块", bh.Height, hex.EncodeToString(bh.Hash))
+func (this *Chain) CountBlock(bh *BlockHead, txs *[]TxItr) bool {
 
 	//计算余额
 	bhvo := &BlockHeadVO{BH: bh, Txs: *txs}
-	chain.balance.CountBalanceForBlock(bhvo)
+	this.balance.CountBalanceForBlock(bhvo)
 
-	//	depositTxs := make([]TxItr, 0)
-	for _, one := range *txs {
-		switch one.Class() {
-		//过滤见证人押金交易，添加见证人
-		case config.Wallet_tx_type_deposit_in:
-			//			addr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
-			//			if err != nil {
-			//				continue
-			//			}
-			//这里决定了交易输出地址才是见证人地址。
-			vout := (*one.GetVout())[0]
-			score := vout.Value
-			chain.witnessBackup.addWitness(&vout.Address, score)
-		case config.Wallet_tx_type_deposit_out:
-			for _, two := range *one.GetVin() {
-				addr, err := keystore.ParseHashByPubkey(two.Puk)
-				if err != nil {
-					continue
-				}
-				chain.witnessBackup.DelWitness(addr)
-			}
-		case config.Wallet_tx_type_vote_in:
-			//			voteAddr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
-			//			if err != nil {
-			//				continue
-			//			}
-			//这里决定了交易输出地址才是见证人地址。
-			//只有下标为0的输出才是押金。
-			vout := (*one.GetVout())[0]
-			score := vout.Value
-			votein := one.(*Tx_vote_in)
+	//统计交易中的备用见证人以及见证人投票
+	this.witnessBackup.CountWitness(txs)
 
-			chain.witnessBackup.addVote(&votein.Vote, &vout.Address, score)
-		case config.Wallet_tx_type_vote_out:
-
-			for _, oneVin := range *one.GetVin() {
-
-				bs, err := db.Find(oneVin.Txid)
-				if err != nil {
-					//TODO 不能找到上一个交易，程序出错退出
-					continue
-				}
-				txItr, err := ParseTxBase(bs)
-				if err != nil {
-					//TODO 不能解析上一个交易，程序出错退出
-					continue
-				}
-				//因为有可能退回金额不够手续费，所以输入中加入了其他类型交易
-				if txItr.Class() != config.Wallet_tx_type_vote_in {
-					continue
-				}
-				vout := (*txItr.GetVout())[oneVin.Vout]
-				votein := txItr.(*Tx_vote_in)
-				chain.witnessBackup.DelVote(&votein.Vote, &vout.Address, vout.Value)
-			}
-
-		}
-	}
-
-	chain.witnessChain.SetWitnessBlock(chain.GetLastBlock())
+	//把见证人设置为已出块
+	this.witnessChain.SetWitnessBlock(this.GetLastBlock())
 
 	//删除已经打包了的交易
-	chain.transactionManager.DelTx(bhvo.Txs)
+	this.transactionManager.DelTx(bhvo.Txs)
 
 	//跟新同步高度
 	//	if GetCurrentBlock()+1 == bhvo.BH.Height {
@@ -174,6 +151,44 @@ func AddBlock(bh *BlockHead, txs *[]TxItr) bool {
 
 	go Mining()
 	return true
+}
+
+/*
+	统计分叉链上的区块
+	@bh    *BlockHead    分叉点区块
+	@hs    [][]byte      分叉链hash路径
+*/
+func (this *Chain) CountForkBlock(block *Block, hs [][]byte) bool {
+	block.Load()
+}
+
+/*
+	回滚一个区块
+	@height    uint64    要回滚的区块高度
+*/
+func (this *Chain) RollbackBlock(height uint64) {
+	block := this.GetLastBlock()
+	for height < block.Height {
+		block = block.PreBlock[0]
+	}
+	bh, txs, err := block.LoadTxs()
+	if err != nil {
+		return
+	}
+
+	bhvo := &BlockHeadVO{BH: bh, Txs: *txs}
+	//回滚余额
+	this.balance.RollbackBalance(bhvo)
+
+	//统计交易中的备用见证人以及见证人投票
+	this.witnessBackup.RollbackCountWitness(txs)
+
+	//把见证人设置为已出块
+	//	this.witnessChain.SetWitnessBlock(this.GetLastBlock())
+
+	//回滚已经打包了的交易
+	this.transactionManager.AddTxs(bhvo.Txs)
+
 }
 
 /*

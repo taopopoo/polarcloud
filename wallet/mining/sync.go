@@ -50,24 +50,77 @@ func NoticeLoadBlockForDB() {
 	添加一个区块到添加队列中去
 */
 func AddBlockHead(bhvo *BlockHeadVO) {
-	//	fmt.Println("将要保存的区块放入队列中 start", bhvo.BH.Height)
-	//	syncSaveBlockHead <- bhvo
-	saveBlockHead(bhvo)
-	//	fmt.Println("将要保存的区块放入队列中 end", bhvo.BH.Height)
+	//TODO 检查本节点是否是挖矿节点
+	//别人先出块，自己停止出块
+	stopFindNonce(bhvo.BH)
+
+	ok := saveBlockHead(bhvo)
+	if !ok {
+		fmt.Println("------添加一个区块不连续")
+		//区块不连续有两种情况
+		//1.恶意区块
+		//2.本节点未同步完整所有区块
+		if (GetHighestBlock() <= 0 || GetHighestBlock() <= 0) ||
+			GetHighestBlock() > GetCurrentBlock() {
+			//更新网络广播块高度
+			if bhvo.BH.Height > GetHighestBlock() {
+				atomic.StoreUint64(&forks.HighestBlock, bhvo.BH.Height)
+			}
+			//同步内存，从数据库加载到内存
+			NoticeLoadBlockForDB()
+		}
+		//TODO
+		//恶意区块，或者链已经分叉
+		//如果自己所在链长期不更新，则自己处在小众分叉链上
+
+		return
+	}
+	//更新网络广播块高度
+	if bhvo.BH.Height > GetHighestBlock() {
+		atomic.StoreUint64(&forks.HighestBlock, bhvo.BH.Height)
+	}
+
+	//添加到内存
+	forks.AddBlock(bhvo.BH, &bhvo.Txs)
+
+	forks.SelectLongChain()
+
+	//判断节点和内存不同步，重新加载区块到内存
+	if bhvo.BH.Height > GetCurrentBlock() {
+		//同步内存，从数据库加载到内存
+		NoticeLoadBlockForDB()
+	}
+
+	//	if chain == nil {
+
+	//		return
+	//	} else {
+	//		//统计余额，备用见证人，以及备用见证人投票
+	//		//		chain.AddBlock(bhvo.BH, &bhvo.Txs)
+	//		fmt.Println("添加一个区块", bhvo.BH.Height, hex.EncodeToString(bhvo.BH.Hash))
+	//		ok, hs := forks.ContrastLongBlock(chain)
+	//		if ok {
+	//			if hs == nil {
+	//				fmt.Println("出错了,分叉了，分叉路径却为空")
+	//			} else {
+	//				//分叉了，回滚
+	//				fmt.Println("分叉了，需要回滚区块")
+	//			}
+	//		} else {
+	//			//未分叉
+	//		}
+	//	}
+
 }
 
-func saveBlockHead(bhvo *BlockHeadVO) {
-	//	for {
-	//		fmt.Println("等待读取将要保存的区块")
-	//		bhvo := <-syncSaveBlockHead
-	//		fmt.Println("开始保存区块", bhvo.BH.Height)
-
-	//TODO 检查本节点是否是挖矿节点
-	stopFindNonce(bhvo.BH)
-	//		fmt.Println("111111111111111")
-
+/*
+	保存一个区块，返回这个区块是否连续，判断依据是能够找到并修改前置区块
+	@return    bool    是否连续
+*/
+func saveBlockHead(bhvo *BlockHeadVO) (ok bool) {
+	ok = true
 	//保存区块中的交易
-	for i, one := range bhvo.Txs {
+	for i, _ := range bhvo.Txs {
 		//			fmt.Println("改变前", hex.EncodeToString(*bhvo.Txs[i].GetHash()))
 		bhvo.Txs[i].BuildHash()
 		bhvo.Txs[i].SetBlockHash(bhvo.BH.Hash)
@@ -76,38 +129,29 @@ func saveBlockHead(bhvo *BlockHeadVO) {
 		if err != nil {
 			//TODO 严谨的错误处理
 			fmt.Println("严重错误1", err)
+			ok = false
 			return
 		}
-		//			fmt.Println("保存交易", hex.EncodeToString(*bhvo.Txs[i].GetHash()))
 		db.Save(*bhvo.Txs[i].GetHash(), bs)
 
-		//		if one.Class() == config.Wallet_tx_type_vote_in {
-		//			fmt.Println("\n打印保存到数据库中的投票", string(*bs), "\n")
+		//		for _, two := range *one.GetVin() {
+		//			txbs, err := db.Find(two.Txid)
+		//			if err != nil {
+		//				//TODO 区块未同步完整，查找不到交易
+		//				continue
+		//			}
+		//			txItr, err := ParseTxBase(txbs)
+		//			if err != nil {
+		//				fmt.Println("严重错误3", err)
+		//				return
+		//			}
+		//			//这个交易输出被使用之后，需要把UTXO输出标记下
+		//			err = txItr.SetTxid(txbs, two.Vout, one.GetHash())
+		//			if err != nil {
+		//				fmt.Println("严重错误4", err)
+		//				return
+		//			}
 		//		}
-
-		//将之前的交易UTXO输出添加新的交易UTXO输入标记
-		//		if one.Class() != config.Wallet_tx_type_deposit_in &&
-		//			one.Class() != config.Wallet_tx_type_pay {
-		//			continue
-		//		}
-
-		for _, two := range *one.GetVin() {
-			txbs, err := db.Find(two.Txid)
-			if err != nil {
-				//TODO 区块未同步完整可以查找不到交易
-				continue
-			}
-			txItr, err := ParseTxBase(txbs)
-			if err != nil {
-				fmt.Println("严重错误3", err)
-				return
-			}
-			err = txItr.SetTxid(txbs, two.Vout, one.GetHash())
-			if err != nil {
-				fmt.Println("严重错误4", err)
-				return
-			}
-		}
 	}
 	//		fmt.Println("222222222222222")
 
@@ -116,8 +160,8 @@ func saveBlockHead(bhvo *BlockHeadVO) {
 	if err == nil {
 		bh, err := ParseBlockHead(bs)
 		if err != nil {
-			fmt.Println("严重错误5", err)
-			return
+			fmt.Println("查询前置区块错误", err)
+			ok = false
 		}
 		if bh.Nextblockhash == nil {
 			bh.Nextblockhash = make([][]byte, 0)
@@ -125,43 +169,35 @@ func saveBlockHead(bhvo *BlockHeadVO) {
 		bh.Nextblockhash = append(bh.Nextblockhash, bhvo.BH.Hash)
 		bs, err = bh.Json()
 		if err != nil {
-			fmt.Println("严重错误6", err)
-			return
+			fmt.Println("格式化前置区块错误", err)
+			ok = false
 		}
-		db.Save(bh.Hash, bs)
+		err = db.Save(bh.Hash, bs)
+		if err != nil {
+			//TODO 严谨的错误处理
+			fmt.Println("保存前置区块错误", err)
+			ok = false
+		}
 	}
 
 	//保存区块
 	bs, err = bhvo.BH.Json()
 	if err != nil {
 		//TODO 严谨的错误处理
-		fmt.Println("严重错误7", err)
-		return
+		fmt.Println("格式化新区块错误", err)
+		ok = false
 	}
-	db.Save(bhvo.BH.Hash, bs)
+	err = db.Save(bhvo.BH.Hash, bs)
+	if err != nil {
+		//TODO 严谨的错误处理
+		fmt.Println("保存新区块错误", err)
+		ok = false
+	}
 
 	//		if bhvo.BH.Height == atomic.LoadUint64(&forks.StartingBlock) {
 	//			db.Save(config.Key_block_start, &bhvo.BH.Hash)
 	//		}
-
-	//更新网络广播块高度
-	if bhvo.BH.Height > GetHighestBlock() {
-		atomic.StoreUint64(&forks.HighestBlock, bhvo.BH.Height)
-	}
-
-	//添加到内存
-	if !AddBlock(bhvo.BH, &bhvo.Txs) {
-		fmt.Println("------添加一个区块不连续")
-		//1.区块不连续.
-		//2.产生了分叉.
-		//3.本节点内存不同步.
-		//判断节点和内存不同步，重新加载区块到内存
-		if bhvo.BH.Height > GetCurrentBlock() {
-			//同步内存，从数据库加载到内存
-			NoticeLoadBlockForDB()
-		}
-	}
-	//	}
+	return
 }
 
 /*

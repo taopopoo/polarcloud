@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strconv"
-	"strings"
 	"polarcloud/core/engine"
 	"polarcloud/core/nodeStore"
+	"strconv"
+	"strings"
+	"time"
 	//"polarcloud/core/utils"
 )
 
@@ -50,12 +51,12 @@ func (this *Auth) SendKey(conn net.Conn, session engine.Session, name string) (r
 	//向对方发送网络id
 	buf := bytes.NewBuffer(nil)
 	binary.Write(buf, binary.BigEndian, uint32(engine.Netid))
-	_, err = conn.Write(buf.Bytes())
+	n, err := conn.Write(buf.Bytes())
 	if err != nil {
-		fmt.Println("主动连接错误 11111", err)
+		fmt.Println("主动连接错误 11111", n, buf.Bytes(), err)
 		return "", err
 	}
-	fmt.Println("发送了网络id 成功")
+	fmt.Println("发送了网络id 成功", n, engine.Netid)
 
 	//第一次连接，向对方发送自己的Node
 	node := &nodeStore.Node{
@@ -67,30 +68,33 @@ func (this *Auth) SendKey(conn net.Conn, session engine.Session, name string) (r
 	bs := node.Marshal()
 	buf = bytes.NewBuffer(nil)
 	binary.Write(buf, binary.BigEndian, uint16(len(bs)))
-	_, err = buf.Write(bs)
+	n, err = buf.Write(bs)
 	if err != nil {
-		fmt.Println("主动连接错误 22222", err)
+		fmt.Println("写入node size错误 22222", n, err)
 		return "", err
 	}
-	_, err = conn.Write(buf.Bytes())
-
+	n, err = conn.Write(buf.Bytes())
+	if err != nil {
+		fmt.Println("写入node错误 22222.5", n, err)
+		return "", err
+	}
 	//接收对方的Node
 	sizebs := make([]byte, 2)
-	_, err = io.ReadFull(conn, sizebs)
+	n, err = io.ReadFull(conn, sizebs)
 	if err != nil {
-		fmt.Println("主动连接错误 33333", err)
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05.999999999"), "接收对方node size错误 33333", n, err)
 		return "", err
 	}
 	size := binary.BigEndian.Uint16(sizebs)
 	nodeBs := make([]byte, size)
 	_, err = io.ReadFull(conn, nodeBs)
 	if err != nil {
-		fmt.Println("主动连接错误 44444", err)
+		fmt.Println("接收对方node错误 44444", err)
 		return "", err
 	}
 	node, err = nodeStore.ParseNode(nodeBs)
 	if err != nil {
-		fmt.Println("主动连接错误 55555", err)
+		fmt.Println("解析对方node错误 55555", err)
 		return "", err
 	}
 	if !nodeStore.CheckIdInfo(node.IdInfo) {
@@ -139,9 +143,9 @@ func (this *Auth) RecvKey(conn net.Conn, name string) (remoteName string, err er
 	fmt.Println("接受连接")
 	//接收对方网络id
 	netIdBs := make([]byte, 4)
-	_, err = io.ReadFull(conn, netIdBs)
+	n, err := io.ReadFull(conn, netIdBs)
 	if err != nil {
-		fmt.Println("连接错误 11111", err)
+		fmt.Println("接收对方netid错误 11111", n, err)
 		return "", err
 	}
 	netId := binary.BigEndian.Uint32(netIdBs)
@@ -154,14 +158,14 @@ func (this *Auth) RecvKey(conn net.Conn, name string) (remoteName string, err er
 	sizebs := make([]byte, 2)
 	_, err = io.ReadFull(conn, sizebs)
 	if err != nil {
-		fmt.Println("连接错误 22222")
+		fmt.Println("接收对方node size错误 22222")
 		return "", err
 	}
 	size := binary.BigEndian.Uint16(sizebs)
 	nodeBs := make([]byte, size)
 	_, err = io.ReadFull(conn, nodeBs)
 	if err != nil {
-		fmt.Println("连接错误 33333")
+		fmt.Println("接收对方node错误 33333")
 		return "", err
 	}
 	//	fmt.Println(string(nodeBs))

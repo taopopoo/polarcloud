@@ -10,7 +10,8 @@ import (
 	"polarcloud/wallet/db"
 	"strconv"
 	"sync"
-	"sync/atomic"
+
+	//	"sync/atomic"
 
 	"polarcloud/wallet/keystore"
 )
@@ -19,7 +20,7 @@ import (
 	地址余额管理器
 */
 type BalanceManager struct {
-	syncHeight    uint64              //已经同步到的区块高度
+	//	syncHeight    uint64              //已经同步到的区块高度
 	syncBlockHead chan *BlockHeadVO   //正在同步的余额，准备导入到余额中
 	balance       *sync.Map           //保存各个地址的余额，key:string=收款地址;value:*Balance=收益列表;
 	depositin     *TxItem             //保存成为见证人押金交易
@@ -130,17 +131,17 @@ func (this *BalanceManager) run() {
 */
 func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 	//		fmt.Println("开始解析余额 111111")
-	atomic.StoreUint64(&this.syncHeight, bhvo.BH.Height)
+	//	atomic.StoreUint64(&this.syncHeight, bhvo.BH.Height)
 	for _, txItr := range bhvo.Txs {
 		//不需要计入余额的类型
-		if txItr.Class() != config.Wallet_tx_type_mining &&
-			txItr.Class() != config.Wallet_tx_type_deposit_in &&
-			txItr.Class() != config.Wallet_tx_type_deposit_out &&
-			txItr.Class() != config.Wallet_tx_type_pay &&
-			txItr.Class() != config.Wallet_tx_type_vote_in &&
-			txItr.Class() != config.Wallet_tx_type_vote_out {
-			continue
-		}
+		//		if txItr.Class() != config.Wallet_tx_type_mining &&
+		//			txItr.Class() != config.Wallet_tx_type_deposit_in &&
+		//			txItr.Class() != config.Wallet_tx_type_deposit_out &&
+		//			txItr.Class() != config.Wallet_tx_type_pay &&
+		//			txItr.Class() != config.Wallet_tx_type_vote_in &&
+		//			txItr.Class() != config.Wallet_tx_type_vote_out {
+		//			continue
+		//		}
 		txItr.BuildHash()
 
 		//将之前的UTXO标记为已经使用，余额中减去。
@@ -149,12 +150,12 @@ func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 			if err != nil {
 				continue
 			}
-			//验证地址
+			//验证和自己相关的地址
 			validate := keystore.ValidateByAddress(addr.B58String())
 			if !validate.IsVerify || !validate.IsMine {
 				continue
 			}
-
+			//查找这个地址的余额列表，没有则创建一个
 			v, ok := this.balance.Load(addr.B58String())
 			var ba *Balance
 			if ok {
@@ -285,6 +286,145 @@ func (this *BalanceManager) countBalance(bhvo *BlockHeadVO) {
 		})
 	}
 	fmt.Println("引入新的交易后 余额", total, "高度", bhvo.BH.Height)
+}
+
+/*
+	回滚余额
+*/
+func (this *BalanceManager) RollbackBalance(bhvo *BlockHeadVO) {
+	//
+	for _, txItr := range bhvo.Txs {
+		//生成新的UTXO收益，保存到列表中
+		for voutIndex, vout := range *txItr.GetVout() {
+			//验证和自己相关的地址
+			validate := keystore.ValidateByAddress(vout.Address.B58String())
+			if !validate.IsVerify || !validate.IsMine {
+				continue
+			}
+
+			switch txItr.Class() {
+			case config.Wallet_tx_type_mining:
+			case config.Wallet_tx_type_deposit_in:
+				if voutIndex == 0 {
+					this.depositin = nil
+					continue
+				}
+			case config.Wallet_tx_type_deposit_out:
+			case config.Wallet_tx_type_pay:
+			case config.Wallet_tx_type_vote_in:
+				if voutIndex == 0 {
+					voteIn := txItr.(*Tx_vote_in)
+					witnessAddr := voteIn.Vote.B58String()
+					v, ok := this.votein.Load(witnessAddr)
+					if ok {
+						ba := v.(*Balance)
+						ba.Txs.Delete(hex.EncodeToString(*txItr.GetHash()) + "_" + strconv.Itoa(voutIndex))
+						//						ba.Txs.Store(hex.EncodeToString(*txItr.GetHash())+"_"+strconv.Itoa(voutIndex), &txItem)
+						this.votein.Store(witnessAddr, ba)
+					}
+					continue
+				}
+			case config.Wallet_tx_type_vote_out:
+			}
+
+			v, ok := this.balance.Load(vout.Address.B58String())
+			if ok {
+				ba := v.(*Balance)
+				ba.Txs.Delete(hex.EncodeToString(*txItr.GetHash()) + "_" + strconv.Itoa(voutIndex))
+				//				ba.Txs.Store(hex.EncodeToString(*txItr.GetHash())+"_"+strconv.Itoa(voutIndex), &txItem)
+				this.balance.Store(vout.Address.B58String(), ba)
+			}
+
+		}
+
+		//将之前的UTXO标记为已经使用，余额中减去。
+		for _, vin := range *txItr.GetVin() {
+			addr, err := keystore.BuildAddrByPubkey(vin.Puk)
+			if err != nil {
+				continue
+			}
+			//验证和自己相关的地址
+			validate := keystore.ValidateByAddress(addr.B58String())
+			if !validate.IsVerify || !validate.IsMine {
+				continue
+			}
+			//查找这个地址的余额列表
+			v, ok := this.balance.Load(addr.B58String())
+			var ba *Balance
+			if ok {
+				ba = v.(*Balance)
+			} else {
+				ba = new(Balance)
+				ba.Txs = new(sync.Map)
+			}
+			//恢复之前的交易记录
+			bs, err := db.Find(vin.Txid)
+			if err != nil {
+				//TODO 严重错误，考虑到轻钱包会删除失效交易的情况。
+				fmt.Println("区块回滚，恢复之前的交易余额失败，查不到交易")
+			}
+			preTxItr, err := ParseTxBase(bs)
+			if err != nil {
+				//TODO 严重错误
+				fmt.Println("区块回滚，恢复之前的交易余额失败，解析交易错误")
+			}
+			vout := (*preTxItr.GetVout())[vin.Vout]
+
+			txItem := TxItem{
+				Addr:     &vout.Address,
+				Value:    vout.Value, //余额
+				Txid:     vin.Txid,   //交易id
+				OutIndex: vin.Vout,   //交易输出index，从0开始
+			}
+
+			switch txItr.Class() {
+			case config.Wallet_tx_type_mining:
+			case config.Wallet_tx_type_deposit_in:
+			case config.Wallet_tx_type_deposit_out:
+
+				if vin.Vout == 0 {
+					this.depositin = &txItem
+				}
+				//				vout := (*preTxItr.GetVout())[0]
+				//				if preTxItr.Class() == config.Wallet_tx_type_deposit_in {
+				//					//					if this.depositin != nil {
+				//					//						if bytes.Equal(*addr, *this.depositin.Addr) {
+				//					//							this.depositin = nil
+				//					//						}
+				//					//					}
+				//				}
+			case config.Wallet_tx_type_pay:
+			case config.Wallet_tx_type_vote_in:
+			case config.Wallet_tx_type_vote_out:
+
+				if vin.Vout == 0 {
+					votein := preTxItr.(*Tx_vote_in)
+					b, ok := this.votein.Load(votein.Vote.B58String())
+					if ok {
+						ba := b.(*Balance)
+						ba.Txs.Store(hex.EncodeToString(*votein.GetHash()), &txItem)
+						//						ba.Txs.Delete(hex.EncodeToString(*voteinTxItr.GetHash()))
+						this.votein.Store(votein.Vote.B58String(), ba)
+					}
+				}
+
+				//				if preTxItr.Class() == config.Wallet_tx_type_vote_in {
+				//					votein := preTxItr.(*Tx_vote_in)
+				//					b, ok := this.votein.Load(votein.Vote.B58String())
+				//					if ok {
+				//						ba := b.(*Balance)
+				//						ba.Txs.Store(hex.EncodeToString(*votein.GetHash()), &txItem)
+				//						//						ba.Txs.Delete(hex.EncodeToString(*voteinTxItr.GetHash()))
+				//						this.votein.Store(votein.Vote.B58String(), ba)
+				//					}
+				//				}
+			}
+			ba.Txs.Store(hex.EncodeToString(vin.Txid)+"_"+strconv.Itoa(int(vin.Vout)), &txItem)
+			//			ba.Txs.Delete(hex.EncodeToString(vin.Txid) + "_" + strconv.Itoa(int(vin.Vout)))
+			this.balance.Store(addr.B58String(), ba)
+		}
+
+	}
 
 }
 

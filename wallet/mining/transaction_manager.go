@@ -111,6 +111,15 @@ func (this *TransactionManager) AddTx(txItr TxItr) bool {
 /*
 	添加一个未打包的交易
 */
+func (this *TransactionManager) AddTxs(txs ...TxItr) bool {
+	for _, one := range txs {
+		this.AddTx(one)
+	}
+}
+
+/*
+	添加一个未打包的交易
+*/
 func (this *TransactionManager) DelTx(txs []TxItr) {
 	for _, one := range txs {
 		str := hex.EncodeToString(*one.GetHash())

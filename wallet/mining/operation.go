@@ -107,6 +107,10 @@ func GetPulledStates() uint64 {
 	return atomic.LoadUint64(&forks.PulledStates)
 }
 
+func SetPulledStates(h uint64) {
+	atomic.StoreUint64(&forks.PulledStates, h)
+}
+
 /*
 	获取区块组高度
 */

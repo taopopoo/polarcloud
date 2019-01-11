@@ -30,11 +30,19 @@ func (this *Tx_reward) Json() (*[]byte, error) {
 }
 
 /*
-	验证是否合法
+	检查交易是否合法
 */
-//func (this *Tx_reward) Check() bool {
-//	return true
-//}
+func (this *Tx_reward) Check() bool {
+	//	fmt.Println("开始验证交易合法性")
+	//检查输入输出是否对等，还有手续费
+
+	outTotal := uint64(0)
+	for _, one := range this.Vout {
+		outTotal = outTotal + one.Value
+	}
+
+	return true
+}
 
 /*
 	构建hash值得到交易id

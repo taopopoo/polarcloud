@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	Port     = 8080
-	Server   = false //是否开启RPC true 开启 false 关闭
-	Allowip  = "127.0.0.1"
+	Port   = 8080
+	Server = false //是否开启RPC true 开启 false 关闭
+	//	Allowip  = "127.0.0.1"  //添加rpc ip地址白名单，为空则所有连接可用。
+	Allowip  = "" //添加rpc ip地址白名单，为空则所有连接可用。
 	User     string
 	Password string
 )
@@ -43,10 +44,12 @@ func (h *Handler) err(code, data string) {
 	return
 }
 func (h *Handler) validate() (msg string, ok bool) {
-	if h.RemoteIp() != Allowip {
+
+	if Allowip != "" && h.RemoteIp() != Allowip {
 		msg = "deny ip"
 		ok = true
 	}
+
 	if h.r.Header.Get("user") != User || h.r.Header.Get("password") != Password {
 		msg = "user or password is wrong"
 		ok = true
