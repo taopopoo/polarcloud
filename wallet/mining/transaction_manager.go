@@ -111,7 +111,7 @@ func (this *TransactionManager) AddTx(txItr TxItr) bool {
 /*
 	添加一个未打包的交易
 */
-func (this *TransactionManager) AddTxs(txs ...TxItr) bool {
+func (this *TransactionManager) AddTxs(txs ...TxItr) {
 	for _, one := range txs {
 		this.AddTx(one)
 	}

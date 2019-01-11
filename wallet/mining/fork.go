@@ -24,7 +24,7 @@ type Forks struct {
 	CurrentBlock  uint64    //内存中已经同步到的区块高度
 	PulledStates  uint64    //正在同步的区块高度
 	LongChain     *Chain    //最高区块引用
-	chainss       *sync.Map //保存各个分叉链key:string=链最高块hash;value:*Chain=各个分叉链引用;
+	chainss       *sync.Map //保存各个分叉链key:string=链最高块hash;value:*Block=各个分叉链引用;
 }
 
 /*
@@ -275,7 +275,7 @@ func (this *Forks) FindIntersection(forkBlock *Block) (uint64, [][]byte) {
 			for j, one := range hs {
 				if bytes.Equal(one, oneBlock.Id) {
 					//找到了分叉点
-					return uint64(j), forkBlockHashs
+					return uint64(j + 1), forkBlockHashs
 				}
 			}
 		}
@@ -329,13 +329,13 @@ func (this *Forks) SelectLongChain() {
 	this.rollBackBlocks(n)
 	//把分叉区块连接的下一个块排序，index为0的是最长链
 
-	//TODO 回滚后重新加载新的区块
+	//TODO 回滚后重新加载新的区块，这些区块只统计见证人投票
+	this.CountForkBlocks(n, hs)
 
 }
 
 /*
 	区块回滚，当链分叉的时候，需要回滚区块，添加最长链的区块
-	@bh    *BlockHead    最新区块
 	@n    uint64    回滚多少个区块
 */
 func (this *Forks) rollBackBlocks(n uint64) {
@@ -344,6 +344,37 @@ func (this *Forks) rollBackBlocks(n uint64) {
 		this.LongChain.RollbackBlock(block.Height)
 	}
 
+}
+
+/*
+	统计分叉块
+	@bh    *BlockHead    最新区块
+	@n    uint64    回滚多少个区块
+*/
+func (this *Forks) CountForkBlocks(n uint64, hs [][]byte) {
+	block := this.LongChain.GetLastBlock()
+	for i := uint64(0); i < n; i++ {
+		block = block.PreBlock[0]
+	}
+	for _, hbs := range hs {
+		has := false
+		for _, one := range block.NextBlock {
+			if bytes.Equal(one.Id, hbs) {
+				//TODO 把本块hash修改排序，排在第一位.
+				has = true
+				bh, txs, err := one.LoadTxs()
+				if err != nil {
+					fmt.Println("回滚后重新统计分叉链出错-加载区块信息错误", err)
+					return
+				}
+				this.LongChain.CountBlock(bh, txs)
+				break
+			}
+		}
+		if !has {
+			fmt.Println("程序出错，没找到统计的区块")
+		}
+	}
 }
 
 /*

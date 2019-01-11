@@ -573,3 +573,13 @@ func FindTxBase(txid []byte) (TxItr, error) {
 	}
 	return ParseTxBase(bs)
 }
+
+/*
+	通过交易hash解析交易类型
+*/
+func ParseTxClass(txid []byte) uint64 {
+	fmt.Println("解析交易id，查询交易类型", len(txid))
+	fmt.Println("/TODO 交易id长度判断", len(txid))
+	classBs := txid[:8]
+	return utils.BytesToUint64(classBs)
+}

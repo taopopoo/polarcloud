@@ -80,6 +80,7 @@ func Register() {
 
 	//如果是创世节点，不用同步区块
 	if config.InitNode {
+		go mining.Mining()
 		return
 	}
 

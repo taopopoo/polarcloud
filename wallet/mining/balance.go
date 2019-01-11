@@ -337,7 +337,7 @@ func (this *BalanceManager) RollbackBalance(bhvo *BlockHeadVO) {
 
 		}
 
-		//将之前的UTXO标记为已经使用，余额中减去。
+		//将之前的UTXO标记为未使用，余额加回来。
 		for _, vin := range *txItr.GetVin() {
 			addr, err := keystore.BuildAddrByPubkey(vin.Puk)
 			if err != nil {

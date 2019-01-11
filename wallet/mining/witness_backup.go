@@ -20,6 +20,7 @@ type WitnessBackup struct {
 	lock         sync.RWMutex    //
 	witnesses    []BackupWitness //
 	witnessesMap sync.Map        //key:string=备用见证人地址;value:*BackupWitness=备用见证人;
+	Vote         sync.Map        //注意：投票押金要和见证人分开，因为区块回滚的时候，恢复见证人就不方便恢复投票押金。投票押金 key:string=投票人地址;value:*VoteScore=投票人和押金;
 }
 
 func (this WitnessBackup) Len() int {
@@ -108,55 +109,69 @@ func (this *WitnessBackup) RollbackCountWitness(txs *[]TxItr) {
 		switch one.Class() {
 		//过滤见证人押金交易，添加见证人
 		case config.Wallet_tx_type_deposit_in:
-			//			addr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
-			//			if err != nil {
-			//				continue
-			//			}
 			//这里决定了交易输出地址才是见证人地址。
 			vout := (*one.GetVout())[0]
-			score := vout.Value
-			this.addWitness(&vout.Address, score)
+			// score := vout.Value
+			// this.addWitness(&vout.Address, score)
+			this.DelWitness(&vout.Address)
 		case config.Wallet_tx_type_deposit_out:
+			//恢复之前的押金交易，把之前的见证人添加回去
 			for _, two := range *one.GetVin() {
-				addr, err := keystore.ParseHashByPubkey(two.Puk)
-				if err != nil {
-					continue
+
+				class := ParseTxClass(two.Txid)
+				//查找见证人押金输入类型的交易
+				if class == config.Wallet_tx_type_deposit_in {
+					//找到了这个交易
+					txbs, err := db.Find(two.Txid)
+					if err != nil {
+						fmt.Println("回滚见证人失败-恢复见证人押金输入交易错误", err)
+						return
+					}
+					txItr, err := ParseTxBase(txbs)
+					if err != nil {
+						fmt.Println("回滚见证人失败-解析并恢复见证人押金输入交易错误", err)
+						return
+					}
+					vout := (*txItr.GetVout())[0]
+					this.addWitness(&vout.Address, vout.Value)
+					break
 				}
-				this.DelWitness(addr)
+
 			}
+
 		case config.Wallet_tx_type_vote_in:
-			//			voteAddr, err := keystore.ParseHashByPubkey((*one.GetVin())[0].Puk)
-			//			if err != nil {
-			//				continue
-			//			}
 			//这里决定了交易输出地址才是见证人地址。
 			//只有下标为0的输出才是押金。
 			vout := (*one.GetVout())[0]
 			score := vout.Value
 			votein := one.(*Tx_vote_in)
 
-			this.addVote(&votein.Vote, &vout.Address, score)
+			// this.addVote(&votein.Vote, &vout.Address, score)
+			this.DelVote(&votein.Vote, &vout.Address, score)
 		case config.Wallet_tx_type_vote_out:
+			//恢复之前的押金交易，把之前的投票押金添加回去
+			for _, two := range *one.GetVin() {
 
-			for _, oneVin := range *one.GetVin() {
+				class := ParseTxClass(two.Txid)
+				//查找见证人押金输入类型的交易
+				if class == config.Wallet_tx_type_vote_in {
+					//找到了这个交易
+					txbs, err := db.Find(two.Txid)
+					if err != nil {
+						fmt.Println("回滚见证人失败-恢复投票押金输入交易错误", err)
+						return
+					}
+					txItr, err := ParseTxBase(txbs)
+					if err != nil {
+						fmt.Println("回滚见证人失败-解析并恢复投票押金输入交易错误", err)
+						return
+					}
+					vout := (*txItr.GetVout())[0]
+					votein := txItr.(*Tx_vote_in)
+					this.addVote(&votein.Vote, &vout.Address, vout.Value)
+					break
+				}
 
-				bs, err := db.Find(oneVin.Txid)
-				if err != nil {
-					//TODO 不能找到上一个交易，程序出错退出
-					continue
-				}
-				txItr, err := ParseTxBase(bs)
-				if err != nil {
-					//TODO 不能解析上一个交易，程序出错退出
-					continue
-				}
-				//因为有可能退回金额不够手续费，所以输入中加入了其他类型交易
-				if txItr.Class() != config.Wallet_tx_type_vote_in {
-					continue
-				}
-				vout := (*txItr.GetVout())[oneVin.Vout]
-				votein := txItr.(*Tx_vote_in)
-				this.DelVote(&votein.Vote, &vout.Address, vout.Value)
 			}
 
 		}
@@ -175,9 +190,9 @@ func (this *WitnessBackup) addWitness(witnessAddr *utils.Multihash, score uint64
 		return
 	}
 	witness := BackupWitness{
-		Addr:  witnessAddr,   //见证人地址
-		Score: score,         //押金
-		Vote:  new(sync.Map), //投票押金
+		Addr:  witnessAddr, //见证人地址
+		Score: score,       //押金
+		// Vote:  new(sync.Map), //投票押金
 	}
 	this.lock.Lock()
 	this.witnesses = append(this.witnesses, witness)
@@ -209,14 +224,14 @@ func (this *WitnessBackup) DelWitness(witnessAddr *utils.Multihash) {
 	添加一个投票
 */
 func (this *WitnessBackup) addVote(witnessAddr, voteAddr *utils.Multihash, score uint64) {
-	//	fmt.Println("+++++++++++添加一个投票", witnessAddr.B58String(), voteAddr.B58String(), score)
-	v, ok := this.witnessesMap.Load(witnessAddr.B58String())
-	if !ok {
-		//		fmt.Println("++++++++添加失败")
-		return
-	}
-	bw := v.(*BackupWitness)
-	v, ok = bw.Vote.Load(voteAddr.B58String())
+	// //	fmt.Println("+++++++++++添加一个投票", witnessAddr.B58String(), voteAddr.B58String(), score)
+	// v, ok := this.witnessesMap.Load(witnessAddr.B58String())
+	// if !ok {
+	// 	//		fmt.Println("++++++++添加失败")
+	// 	return
+	// }
+	// bw := v.(*BackupWitness)
+	v, ok := this.Vote.Load(voteAddr.B58String())
 	if ok {
 		vs := v.(*VoteScore)
 		vs.Score = vs.Score + score
@@ -224,7 +239,7 @@ func (this *WitnessBackup) addVote(witnessAddr, voteAddr *utils.Multihash, score
 		vs := new(VoteScore)
 		vs.Addr = voteAddr
 		vs.Score = score
-		bw.Vote.Store(voteAddr.B58String(), vs)
+		this.Vote.Store(voteAddr.B58String(), vs)
 	}
 }
 
@@ -232,14 +247,14 @@ func (this *WitnessBackup) addVote(witnessAddr, voteAddr *utils.Multihash, score
 	添加一个见证人到投票列表
 */
 func (this *WitnessBackup) DelVote(witnessAddr, voteAddr *utils.Multihash, score uint64) {
-	//	fmt.Println("------------删除一个投票", witnessAddr.B58String(), voteAddr.B58String(), score)
-	v, ok := this.witnessesMap.Load(witnessAddr.B58String())
-	if !ok {
-		//		fmt.Println("---------不存在，所以删除失败1111")
-		return
-	}
-	bw := v.(*BackupWitness)
-	v, ok = bw.Vote.Load(voteAddr.B58String())
+	// //	fmt.Println("------------删除一个投票", witnessAddr.B58String(), voteAddr.B58String(), score)
+	// v, ok := this.witnessesMap.Load(witnessAddr.B58String())
+	// if !ok {
+	// 	//		fmt.Println("---------不存在，所以删除失败1111")
+	// 	return
+	// }
+	// bw := v.(*BackupWitness)
+	v, ok := this.Vote.Load(voteAddr.B58String())
 	if !ok {
 		fmt.Println("---------不存在，所以删除失败2222")
 		return
@@ -248,7 +263,7 @@ func (this *WitnessBackup) DelVote(witnessAddr, voteAddr *utils.Multihash, score
 	vs.Score = vs.Score - score
 	//如果押金为0，则删除这个投票
 	if vs.Score == 0 {
-		bw.Vote.Delete(voteAddr.B58String())
+		this.Vote.Delete(voteAddr.B58String())
 	}
 }
 
@@ -273,7 +288,7 @@ func (this *WitnessBackup) haveWitness(witnessAddr *utils.Multihash) (have bool)
 type BackupWitness struct {
 	Addr  *utils.Multihash //见证人地址
 	Score uint64           //评分
-	Vote  *sync.Map        //投票押金 key:string=投票人地址;value:*VoteScore=投票人和押金;
+	// Vote  *sync.Map        //投票押金 key:string=投票人地址;value:*VoteScore=投票人和押金;
 }
 
 /*
@@ -295,7 +310,7 @@ func (this *WitnessBackup) CreateWitnessGroup() *Witness {
 		newWitness.Addr = this.witnesses[i].Addr
 		newWitness.Score = this.witnesses[i].Score
 		newWitness.Votes = make([]*VoteScore, 0)
-		this.witnesses[i].Vote.Range(func(k, v interface{}) bool {
+		this.Vote.Range(func(k, v interface{}) bool {
 			vs := v.(*VoteScore)
 			newvs := new(VoteScore)
 			newvs.Addr = vs.Addr
@@ -363,6 +378,7 @@ func NewWitnessBackup(chain *Chain) *WitnessBackup {
 		lock:         *new(sync.RWMutex),
 		witnesses:    make([]BackupWitness, 0),
 		witnessesMap: *new(sync.Map),
+		Vote:         *new(sync.Map),
 	}
 	return &wb
 }

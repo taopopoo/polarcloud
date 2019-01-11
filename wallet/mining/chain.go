@@ -1,6 +1,7 @@
 package mining
 
 import (
+	"fmt"
 	"polarcloud/config"
 	"polarcloud/core/utils"
 	"polarcloud/wallet/db"
@@ -126,7 +127,7 @@ func (this *Block) UpdateNextIndex(bhash []byte) error {
 	添加一个区块
 	只能连续添加区块高度更高的区块
 */
-func (this *Chain) CountBlock(bh *BlockHead, txs *[]TxItr) bool {
+func (this *Chain) CountBlock(bh *BlockHead, txs *[]TxItr) {
 
 	//计算余额
 	bhvo := &BlockHeadVO{BH: bh, Txs: *txs}
@@ -149,8 +150,7 @@ func (this *Chain) CountBlock(bh *BlockHead, txs *[]TxItr) bool {
 		atomic.StoreUint64(&forks.CurrentBlock, bhvo.BH.Height)
 	}
 
-	go Mining()
-	return true
+	// go Mining()
 }
 
 /*
@@ -158,15 +158,16 @@ func (this *Chain) CountBlock(bh *BlockHead, txs *[]TxItr) bool {
 	@bh    *BlockHead    分叉点区块
 	@hs    [][]byte      分叉链hash路径
 */
-func (this *Chain) CountForkBlock(block *Block, hs [][]byte) bool {
-	block.Load()
-}
+// func (this *Chain) CountForkBlock(block *Block, hs [][]byte) bool {
+// 	block.Load()
+// }
 
 /*
 	回滚一个区块
 	@height    uint64    要回滚的区块高度
 */
 func (this *Chain) RollbackBlock(height uint64) {
+	fmt.Println("开始回滚区块，回滚区块高度", height)
 	block := this.GetLastBlock()
 	for height < block.Height {
 		block = block.PreBlock[0]
@@ -187,7 +188,7 @@ func (this *Chain) RollbackBlock(height uint64) {
 	//	this.witnessChain.SetWitnessBlock(this.GetLastBlock())
 
 	//回滚已经打包了的交易
-	this.transactionManager.AddTxs(bhvo.Txs)
+	this.transactionManager.AddTxs(bhvo.Txs...)
 
 }
 

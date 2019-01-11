@@ -89,7 +89,9 @@ func AddBlockHead(bhvo *BlockHeadVO) {
 	if bhvo.BH.Height > GetCurrentBlock() {
 		//同步内存，从数据库加载到内存
 		NoticeLoadBlockForDB()
+		return
 	}
+	go Mining()
 
 	//	if chain == nil {
 
