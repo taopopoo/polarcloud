@@ -1,6 +1,7 @@
 package mining
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -52,6 +53,12 @@ func NoticeLoadBlockForDB() {
 func AddBlockHead(bhvo *BlockHeadVO) {
 	//TODO 检查本节点是否是挖矿节点
 	//别人先出块，自己停止出块
+
+	if !bhvo.BH.Check() {
+		fmt.Println("区块验证不通过，区块不合法", base64.StdEncoding.EncodeToString(bhvo.BH.Hash))
+		return
+	}
+
 	stopFindNonce(bhvo.BH)
 
 	ok := saveBlockHead(bhvo)

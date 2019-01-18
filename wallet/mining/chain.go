@@ -115,12 +115,43 @@ func (this *Block) LoadTxs() (*BlockHead, *[]TxItr, error) {
 	return bh, &txs, nil
 }
 
-/*
-	修改本区块的下一个区块中最长区块下标为0
-*/
-func (this *Block) UpdateNextIndex(bhash []byte) error {
+// /*
+// 	添加本区块的下一个区块
+// */
+// func (this *Block) AddNextBlock(bhash []byte) error {
+// this.NextBlock
+// 	return nil
+// }
 
-	return nil
+// /*
+// 	修改本区块的下一个区块中最长区块下标为0
+// */
+// func (this *Block) UpdateNextIndex(bhash [][]byte) error {
+// 	this.NextBlock
+
+// 	return nil
+// }
+
+/*
+	修改next区块顺序
+*/
+func (this *Block) FlashNextblockhash() error {
+	bh, err := this.Load()
+	if err != nil {
+		return err
+	}
+	bhashs := make([][]byte, 0)
+	for _, one := range this.NextBlock {
+		bhashs = append(bhashs, one.Id)
+	}
+	bh.Nextblockhash = bhashs
+
+	bs, err := bh.Json()
+	if err != nil {
+		return err
+	}
+	return db.Save(this.Id, bs)
+	// return &bs, nil
 }
 
 /*

@@ -92,6 +92,7 @@ func (this *Forks) AddBlock(bh *BlockHead, txs *[]TxItr) {
 
 		newBlock.PreBlock = append(newBlock.PreBlock, beforeBlock)
 		beforeBlock.NextBlock = append(beforeBlock.NextBlock, newBlock)
+		beforeBlock.FlashNextblockhash()
 
 		//新的区块组
 		if bh.GroupHeight > beforeBlock.Group.Height {
@@ -146,6 +147,7 @@ func (this *Forks) AddBlock(bh *BlockHead, txs *[]TxItr) {
 				fmt.Println("添加区块 6666666666666")
 				newBlock.PreBlock = append(newBlock.PreBlock, oneBlock)
 				oneBlock.NextBlock = append(oneBlock.NextBlock, newBlock)
+				oneBlock.FlashNextblockhash()
 
 				newGroup := new(Group)
 				newGroup.Height = bh.GroupHeight
@@ -170,7 +172,9 @@ func (this *Forks) AddBlock(bh *BlockHead, txs *[]TxItr) {
 				this.chainss.Store(hex.EncodeToString(newBlock.Id), newBlock)
 				return false
 			}
-
+			if oneBlock.PreBlock == nil || len(oneBlock.PreBlock) <= 0 {
+				break
+			}
 			oneBlock = oneBlock.PreBlock[0]
 			if oneBlock.Group.Height < groupHeight {
 				i++
@@ -326,10 +330,12 @@ func (this *Forks) SelectLongChain() {
 		return
 	}
 	//开始回滚
+	fmt.Println("开始回滚区块")
 	this.rollBackBlocks(n)
 	//把分叉区块连接的下一个块排序，index为0的是最长链
 
-	//TODO 回滚后重新加载新的区块，这些区块只统计见证人投票
+	//回滚后重新加载新的区块，这些区块只统计见证人投票
+	fmt.Println("开始加载分叉链区块")
 	this.CountForkBlocks(n, hs)
 
 }

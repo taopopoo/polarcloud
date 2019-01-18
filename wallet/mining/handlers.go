@@ -104,14 +104,14 @@ func MulticastBlockHead_recv(c engine.Controller, msg engine.Packet) {
 	}
 
 	//	fmt.Println("接收区块头广播")
-	//	fmt.Println("接收区块头广播", string(*message.Body.Content))
+	// fmt.Println("接收区块头广播", string(*message.Body.Content))
 
 	bhVO, err := ParseBlockHeadVO(message.Body.Content)
 	if err != nil {
 		fmt.Println("解析区块广播错误", err)
 		return
 	}
-	//	fmt.Println("接收区块广播", bhVO.BH.Height)
+	fmt.Println("接收区块广播，区块高度", bhVO.BH.Height)
 	go AddBlockHead(bhVO)
 	//	go ImportBlock(bhVO)
 

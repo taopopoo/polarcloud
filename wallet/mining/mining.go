@@ -2,6 +2,7 @@ package mining
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"polarcloud/config"
@@ -261,11 +262,11 @@ func BuildBlockForPOW() {
 	}
 
 	bhvo := CreateBlockHeadVO(&bh, txs)
+	fmt.Println("========POW 出块完成 高度为", bhvo.BH.Height, base64.StdEncoding.EncodeToString(bhvo.BH.Hash))
 
 	//广播区块
 	MulticastBlock(bhvo)
 
-	fmt.Println("========出块完成======= 高度为", bhvo.BH.Height)
 	AddBlockHead(bhvo)
 }
 

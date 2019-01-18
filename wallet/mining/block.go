@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"polarcloud/core/utils"
+
+	// "polarcloud/wallet/db"
 	"polarcloud/wallet/keystore"
 )
 
@@ -80,18 +82,25 @@ func (this *BlockHead) Check() bool {
 	@stopSignal    chan bool    停止信号 true=已经找到；false=未找到，被终止；
 */
 func (this *BlockHead) FindNonce(zoroes uint64, stopSignal chan bool) chan bool {
-	fmt.Println("开始工作，寻找幸运数字。请等待...")
+	fmt.Println("start 开始工作，寻找区块高度", this.Height, "幸运数字。请等待...")
 	result := make(chan bool, 1)
+
+	//TODO 测试区块分叉使用，发布版本可以删除
+	// this.Nonce = uint64(utils.GetRandNum(20000))
+
 	stop := false
 	for !stop {
 		this.Nonce++
 		this.BuildHash()
 		if utils.CheckNonce(this.Hash, zoroes) {
 			result <- true
+			fmt.Println("end 停止工作，找到幸运数字", this.Height)
 			return result
 		}
 		select {
 		case <-stopSignal:
+			fmt.Println("end 停止工作，因外部中断", this.Height)
+			// close(stopSignal)
 			stop = true
 		default:
 		}

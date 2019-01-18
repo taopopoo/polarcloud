@@ -91,6 +91,8 @@ func Register() {
 		fmt.Println("同步区块错误", err)
 		return
 	}
+
+	mining.NoticeLoadBlockForDB()
 	fmt.Println("节点启动完成")
 	//	mining.Mining()
 

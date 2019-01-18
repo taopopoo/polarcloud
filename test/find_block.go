@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	find("../example/peer_root/wallet/data")
+	find("D:/temp/root/wallet/data")
 	fmt.Println("finish!")
 }
 
